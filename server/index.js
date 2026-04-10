@@ -17,14 +17,21 @@ app.use(express.json());
 let pool;
 
 async function createDatabasePool() {
-  if (!process.env.MYSQL_URL) {
-    throw new Error("MYSQL_URL is not set");
-  }
-
-  console.log("Using MYSQL_URL");
-
-  pool = mysql.createPool(process.env.MYSQL_URL);
-};
+  if (process.env.MYSQL_URL) {
+    console.log('Using MYSQL_URL for database connection.');
+    pool = mysql.createPool(process.env.MYSQL_URL);
+  } else {
+    console.log('Using individual DB_ environment variables for database connection.');
+    const dbConfig = {
+      host: process.env.DB_HOST || process.env.MYSQLHOST,
+      user: process.env.DB_USER || process.env.MYSQLUSER,
+      password: process.env.DB_PASSWORD || process.env.MYSQLPASSWORD,
+      database: process.env.DB_NAME || process.env.MYSQLDATABASE,
+      port: parseInt(process.env.DB_PORT || process.env.MYSQLPORT || '3306'),
+      waitForConnections: true,
+      connectionLimit: 10,
+      queueLimit: 0,
+    };
 
     // Log database configuration (excluding password) for debugging
     console.log('Database Configuration:', {
