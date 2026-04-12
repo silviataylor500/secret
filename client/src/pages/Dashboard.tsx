@@ -37,6 +37,7 @@ export default function Dashboard() {
         setUser(response.data)
         setLoading(false)
       } catch (err: any) {
+        console.error('Profile fetch error:', err)
         setError(err.response?.data?.message || 'Failed to fetch profile')
         setLoading(false)
       }
@@ -67,6 +68,22 @@ export default function Dashboard() {
     )
   }
 
+  // Helper to safely format numbers
+  const formatUSD = (val: any) => {
+    const num = parseFloat(val)
+    return isNaN(num) ? '0.00' : num.toFixed(2)
+  }
+
+  const formatBTC = (val: any) => {
+    const num = parseFloat(val)
+    return isNaN(num) ? '0.00000000' : num.toFixed(8)
+  }
+
+  const formatPercent = (val: any) => {
+    const num = parseFloat(val)
+    return isNaN(num) ? '0.00' : num.toFixed(2)
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800">
       {/* Navbar */}
@@ -74,22 +91,24 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-yellow-500 rounded-full"></div>
+              <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
+                <span className="text-black font-bold text-xs">₿</span>
+              </div>
               <span className="text-xl font-bold text-white">BINANCE</span>
             </div>
             <div className="flex items-center gap-4">
               {user?.role === 'admin' && (
                 <button
                   onClick={() => navigate('/admin')}
-                  className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-slate-900 rounded-lg font-bold"
+                  className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-slate-900 rounded-lg font-bold text-sm"
                 >
                   Admin Panel
                 </button>
               )}
-              <span className="text-slate-300">Welcome, {user?.name}</span>
+              <span className="text-slate-300 text-sm">Welcome, {user?.name || 'User'}</span>
               <button
                 onClick={handleLogout}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold"
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold text-sm"
               >
                 Log Out
               </button>
@@ -106,22 +125,22 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="bg-slate-800 border border-slate-700 rounded-lg p-6">
             <p className="text-slate-400 text-sm mb-2">USD Invested</p>
-            <p className="text-3xl font-bold text-white">${user?.investmentAmount.toFixed(2)}</p>
+            <p className="text-3xl font-bold text-white">${formatUSD(user?.investmentAmount)}</p>
           </div>
 
           <div className="bg-slate-800 border border-slate-700 rounded-lg p-6">
             <p className="text-slate-400 text-sm mb-2">Daily Return Rate</p>
-            <p className="text-3xl font-bold text-green-400">{user?.dailyReturnRate.toFixed(2)}%</p>
+            <p className="text-3xl font-bold text-green-400">{formatPercent(user?.dailyReturnRate)}%</p>
           </div>
 
           <div className="bg-slate-800 border border-slate-700 rounded-lg p-6">
             <p className="text-slate-400 text-sm mb-2">BTC Allocated</p>
-            <p className="text-3xl font-bold text-white">{user?.btcAllocated.toFixed(8)} BTC</p>
+            <p className="text-3xl font-bold text-white">{formatBTC(user?.btcAllocated)} BTC</p>
           </div>
 
           <div className="bg-slate-800 border border-slate-700 rounded-lg p-6">
             <p className="text-slate-400 text-sm mb-2">Daily Earnings</p>
-            <p className="text-3xl font-bold text-green-400">${user?.dailyEarnings.toFixed(2)}</p>
+            <p className="text-3xl font-bold text-green-400">${formatUSD(user?.dailyEarnings)}</p>
           </div>
         </div>
 
@@ -132,21 +151,21 @@ export default function Dashboard() {
             <div className="bg-slate-700/50 rounded-lg p-4">
               <p className="text-slate-400 text-sm mb-2">7 Days</p>
               <p className="text-2xl font-bold text-green-400">
-                ${(user ? user.dailyEarnings * 7 : 0).toFixed(2)}
+                ${formatUSD(user ? (parseFloat(user.dailyEarnings as any) || 0) * 7 : 0)}
               </p>
             </div>
 
             <div className="bg-slate-700/50 rounded-lg p-4">
               <p className="text-slate-400 text-sm mb-2">30 Days</p>
               <p className="text-2xl font-bold text-green-400">
-                ${(user ? user.dailyEarnings * 30 : 0).toFixed(2)}
+                ${formatUSD(user ? (parseFloat(user.dailyEarnings as any) || 0) * 30 : 0)}
               </p>
             </div>
 
             <div className="bg-slate-700/50 rounded-lg p-4">
               <p className="text-slate-400 text-sm mb-2">1 Year</p>
               <p className="text-2xl font-bold text-green-400">
-                ${(user ? user.dailyEarnings * 365 : 0).toFixed(2)}
+                ${formatUSD(user ? (parseFloat(user.dailyEarnings as any) || 0) * 365 : 0)}
               </p>
             </div>
           </div>
@@ -158,15 +177,15 @@ export default function Dashboard() {
           <div className="space-y-3">
             <div className="flex justify-between">
               <span className="text-slate-400">Name:</span>
-              <span className="text-white font-semibold">{user?.name}</span>
+              <span className="text-white font-semibold">{user?.name || 'N/A'}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-400">Email:</span>
-              <span className="text-white font-semibold">{user?.email}</span>
+              <span className="text-white font-semibold">{user?.email || 'N/A'}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-400">Total Earnings:</span>
-              <span className="text-green-400 font-semibold">${user?.totalEarnings.toFixed(2)}</span>
+              <span className="text-green-400 font-semibold">${formatUSD(user?.totalEarnings)}</span>
             </div>
           </div>
         </div>
