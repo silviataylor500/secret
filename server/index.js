@@ -75,6 +75,29 @@ async function initDatabase() {
       )
     `);
 
+    // Create settings table for storing TRC20 address
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS settings (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        trc20_address VARCHAR(255),
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create deposits table for tracking user deposits
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS deposits (
+        id VARCHAR(36) PRIMARY KEY,
+        userId VARCHAR(36) NOT NULL,
+        transactionId VARCHAR(255) NOT NULL UNIQUE,
+        status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
     connection.release();
     console.log('Database tables initialized successfully');
   } catch (error) {
@@ -315,6 +338,147 @@ app.delete('/api/admin/users/:id', authMiddleware, adminMiddleware, async (req, 
     res.json({ message: 'User deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: 'Failed to delete user' });
+  }
+});
+
+// Admin: Get TRC20 address
+app.get('/api/admin/settings/trc20', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const connection = await pool.getConnection();
+    const [settings] = await connection.execute('SELECT trc20_address FROM settings LIMIT 1');
+    connection.release();
+    
+    const trc20Address = settings.length > 0 ? settings[0].trc20_address : '';
+    res.json({ trc20_address: trc20Address });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch TRC20 address' });
+  }
+});
+
+// Admin: Set TRC20 address
+app.post('/api/admin/settings/trc20', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { trc20_address } = req.body;
+
+    if (!trc20_address) {
+      return res.status(400).json({ message: 'TRC20 address is required' });
+    }
+
+    const connection = await pool.getConnection();
+    
+    // Check if settings exist
+    const [existing] = await connection.execute('SELECT id FROM settings LIMIT 1');
+    
+    if (existing.length > 0) {
+      // Update existing
+      await connection.execute('UPDATE settings SET trc20_address = ? WHERE id = 1', [trc20_address]);
+    } else {
+      // Insert new
+      await connection.execute('INSERT INTO settings (trc20_address) VALUES (?)', [trc20_address]);
+    }
+    
+    connection.release();
+    res.json({ message: 'TRC20 address updated successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to update TRC20 address' });
+  }
+});
+
+// User: Get TRC20 address (for deposit page)
+app.get('/api/deposit/trc20', authMiddleware, async (req, res) => {
+  try {
+    const connection = await pool.getConnection();
+    const [settings] = await connection.execute('SELECT trc20_address FROM settings LIMIT 1');
+    connection.release();
+    
+    const trc20Address = settings.length > 0 ? settings[0].trc20_address : '';
+    res.json({ trc20_address: trc20Address });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch TRC20 address' });
+  }
+});
+
+// User: Submit deposit (transaction ID)
+app.post('/api/deposit/submit', authMiddleware, async (req, res) => {
+  try {
+    const { transactionId } = req.body;
+
+    if (!transactionId) {
+      return res.status(400).json({ message: 'Transaction ID is required' });
+    }
+
+    // Validate transaction ID length (5-30 characters) and alphanumeric
+    if (transactionId.length < 5 || transactionId.length > 30) {
+      return res.status(400).json({ message: 'Transaction ID must be between 5 and 30 characters' });
+    }
+
+    // Validate that transaction ID is alphanumeric
+    if (!/^[a-zA-Z0-9]+$/.test(transactionId)) {
+      return res.status(400).json({ message: 'Transaction ID must contain only letters and numbers' });
+    }
+
+    const connection = await pool.getConnection();
+
+    // Check if transaction ID already exists
+    const [existing] = await connection.execute('SELECT id FROM deposits WHERE transactionId = ?', [transactionId]);
+    
+    if (existing.length > 0) {
+      connection.release();
+      return res.status(400).json({ message: 'This transaction ID has already been submitted' });
+    }
+
+    const depositId = crypto.randomUUID();
+    await connection.execute(
+      'INSERT INTO deposits (id, userId, transactionId) VALUES (?, ?, ?)',
+      [depositId, req.userId, transactionId]
+    );
+
+    connection.release();
+    res.json({ message: 'Deposit submitted successfully. Awaiting admin approval.' });
+  } catch (error) {
+    console.error('Deposit error:', error);
+    res.status(500).json({ message: 'Failed to submit deposit' });
+  }
+});
+
+// Admin: Get all deposits
+app.get('/api/admin/deposits', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const connection = await pool.getConnection();
+    const [deposits] = await connection.execute(`
+      SELECT d.id, d.userId, u.name, u.email, d.transactionId, d.status, d.createdAt 
+      FROM deposits d 
+      JOIN users u ON d.userId = u.id 
+      ORDER BY d.createdAt DESC
+    `);
+    connection.release();
+    res.json(deposits);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch deposits' });
+  }
+});
+
+// Admin: Approve deposit
+app.put('/api/admin/deposits/:id/approve', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const connection = await pool.getConnection();
+    await connection.execute('UPDATE deposits SET status = ? WHERE id = ?', ['approved', req.params.id]);
+    connection.release();
+    res.json({ message: 'Deposit approved successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to approve deposit' });
+  }
+});
+
+// Admin: Reject deposit
+app.put('/api/admin/deposits/:id/reject', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const connection = await pool.getConnection();
+    await connection.execute('UPDATE deposits SET status = ? WHERE id = ?', ['rejected', req.params.id]);
+    connection.release();
+    res.json({ message: 'Deposit rejected successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to reject deposit' });
   }
 });
 
