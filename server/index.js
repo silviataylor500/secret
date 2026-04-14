@@ -69,7 +69,7 @@ async function initDatabase() {
         btcAllocated DECIMAL(16, 8) DEFAULT 0,
         dailyEarnings DECIMAL(10, 2) DEFAULT 0,
         totalEarnings DECIMAL(10, 2) DEFAULT 0,
-        role ENUM('user', 'admin') DEFAULT 'user',
+        role ENUM('user', 'admin', 'co-admin') DEFAULT 'user',
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )
@@ -95,6 +95,34 @@ async function initDatabase() {
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Create withdrawals table for tracking user withdrawals
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS withdrawals (
+        id VARCHAR(36) PRIMARY KEY,
+        userId VARCHAR(36) NOT NULL,
+        amount DECIMAL(10, 2) NOT NULL,
+        trc20_address VARCHAR(255) NOT NULL,
+        status ENUM('pending', 'approved', 'rejected', 'completed') DEFAULT 'pending',
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+
+    // Create messages table for customer service chat
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS messages (
+        id VARCHAR(36) PRIMARY KEY,
+        userId VARCHAR(36) NOT NULL,
+        coAdminId VARCHAR(36),
+        message TEXT NOT NULL,
+        senderRole ENUM('user', 'co-admin') NOT NULL,
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (coAdminId) REFERENCES users(id) ON DELETE SET NULL
       )
     `);
 
@@ -186,6 +214,22 @@ async function adminMiddleware(req, res, next) {
 
     if (users.length === 0 || users[0].role !== 'admin') {
       return res.status(403).json({ message: 'Forbidden: Admin access required' });
+    }
+    next();
+  } catch (error) {
+    res.status(500).json({ message: 'Internal server error' });
+  }
+}
+
+// Co-Admin Middleware
+async function coAdminMiddleware(req, res, next) {
+  try {
+    const connection = await pool.getConnection();
+    const [users] = await connection.execute('SELECT role FROM users WHERE id = ?', [req.userId]);
+    connection.release();
+
+    if (users.length === 0 || (users[0].role !== 'co-admin' && users[0].role !== 'admin')) {
+      return res.status(403).json({ message: 'Forbidden: Co-Admin access required' });
     }
     next();
   } catch (error) {
@@ -479,6 +523,180 @@ app.put('/api/admin/deposits/:id/reject', authMiddleware, adminMiddleware, async
     res.json({ message: 'Deposit rejected successfully' });
   } catch (error) {
     res.status(500).json({ message: 'Failed to reject deposit' });
+  }
+});
+
+// User: Submit withdrawal request
+app.post('/api/withdrawal/submit', authMiddleware, async (req, res) => {
+  try {
+    const { amount, trc20_address } = req.body;
+
+    if (!amount || !trc20_address) {
+      return res.status(400).json({ message: 'Amount and TRC20 address are required' });
+    }
+
+    if (amount <= 0) {
+      return res.status(400).json({ message: 'Amount must be greater than 0' });
+    }
+
+    const connection = await pool.getConnection();
+
+    const withdrawalId = crypto.randomUUID();
+    await connection.execute(
+      'INSERT INTO withdrawals (id, userId, amount, trc20_address) VALUES (?, ?, ?, ?)',
+      [withdrawalId, req.userId, amount, trc20_address]
+    );
+
+    connection.release();
+    res.json({ message: 'Withdrawal request submitted successfully. Awaiting admin approval.' });
+  } catch (error) {
+    console.error('Withdrawal error:', error);
+    res.status(500).json({ message: 'Failed to submit withdrawal request' });
+  }
+});
+
+// Admin/Co-Admin: Get all withdrawals
+app.get('/api/admin/withdrawals', authMiddleware, coAdminMiddleware, async (req, res) => {
+  try {
+    const connection = await pool.getConnection();
+    const [withdrawals] = await connection.execute(`
+      SELECT w.id, w.userId, u.name, u.email, w.amount, w.trc20_address, w.status, w.createdAt 
+      FROM withdrawals w 
+      JOIN users u ON w.userId = u.id 
+      ORDER BY w.createdAt DESC
+    `);
+    connection.release();
+    res.json(withdrawals);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch withdrawals' });
+  }
+});
+
+// Admin/Co-Admin: Approve withdrawal
+app.put('/api/admin/withdrawals/:id/approve', authMiddleware, coAdminMiddleware, async (req, res) => {
+  try {
+    const connection = await pool.getConnection();
+    await connection.execute('UPDATE withdrawals SET status = ? WHERE id = ?', ['approved', req.params.id]);
+    connection.release();
+    res.json({ message: 'Withdrawal approved successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to approve withdrawal' });
+  }
+});
+
+// Admin/Co-Admin: Reject withdrawal
+app.put('/api/admin/withdrawals/:id/reject', authMiddleware, coAdminMiddleware, async (req, res) => {
+  try {
+    const connection = await pool.getConnection();
+    await connection.execute('UPDATE withdrawals SET status = ? WHERE id = ?', ['rejected', req.params.id]);
+    connection.release();
+    res.json({ message: 'Withdrawal rejected successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to reject withdrawal' });
+  }
+});
+
+// User: Send message to co-admin
+app.post('/api/chat/send', authMiddleware, async (req, res) => {
+  try {
+    const { message } = req.body;
+
+    if (!message || message.trim() === '') {
+      return res.status(400).json({ message: 'Message cannot be empty' });
+    }
+
+    const connection = await pool.getConnection();
+
+    const messageId = crypto.randomUUID();
+    await connection.execute(
+      'INSERT INTO messages (id, userId, message, senderRole) VALUES (?, ?, ?, ?)',
+      [messageId, req.userId, message, 'user']
+    );
+
+    connection.release();
+    res.json({ message: 'Message sent successfully' });
+  } catch (error) {
+    console.error('Chat error:', error);
+    res.status(500).json({ message: 'Failed to send message' });
+  }
+});
+
+// User: Get chat messages
+app.get('/api/chat/messages', authMiddleware, async (req, res) => {
+  try {
+    const connection = await pool.getConnection();
+
+    const [messages] = await connection.execute(
+      'SELECT id, userId, message, senderRole, createdAt FROM messages WHERE userId = ? ORDER BY createdAt ASC',
+      [req.userId]
+    );
+
+    connection.release();
+    res.json(messages);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch messages' });
+  }
+});
+
+// Co-Admin: Get all user chats
+app.get('/api/admin/chats', authMiddleware, coAdminMiddleware, async (req, res) => {
+  try {
+    const connection = await pool.getConnection();
+
+    const [chats] = await connection.execute(`
+      SELECT DISTINCT m.userId, u.name, u.email, COUNT(m.id) as messageCount, MAX(m.createdAt) as lastMessage
+      FROM messages m
+      JOIN users u ON m.userId = u.id
+      GROUP BY m.userId, u.name, u.email
+      ORDER BY MAX(m.createdAt) DESC
+    `);
+
+    connection.release();
+    res.json(chats);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch chats' });
+  }
+});
+
+// Co-Admin: Get specific user chat
+app.get('/api/admin/chat/:userId', authMiddleware, coAdminMiddleware, async (req, res) => {
+  try {
+    const connection = await pool.getConnection();
+
+    const [messages] = await connection.execute(
+      'SELECT id, userId, message, senderRole, createdAt FROM messages WHERE userId = ? ORDER BY createdAt ASC',
+      [req.params.userId]
+    );
+
+    connection.release();
+    res.json(messages);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch chat messages' });
+  }
+});
+
+// Co-Admin: Send message to user
+app.post('/api/admin/chat/send', authMiddleware, coAdminMiddleware, async (req, res) => {
+  try {
+    const { userId, message } = req.body;
+
+    if (!userId || !message || message.trim() === '') {
+      return res.status(400).json({ message: 'User ID and message are required' });
+    }
+
+    const connection = await pool.getConnection();
+
+    const messageId = crypto.randomUUID();
+    await connection.execute(
+      'INSERT INTO messages (id, userId, coAdminId, message, senderRole) VALUES (?, ?, ?, ?, ?)',
+      [messageId, userId, req.userId, message, 'co-admin']
+    );
+
+    connection.release();
+    res.json({ message: 'Message sent successfully' });
+  } catch (error) {
+    console.error('Chat error:', error);
+    res.status(500).json({ message: 'Failed to send message' });
   }
 });
 
