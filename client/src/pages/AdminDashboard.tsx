@@ -16,12 +16,19 @@ interface User {
   createdAt: string
 }
 
+interface PriceData {
+  bitcoin: {
+    usd: number
+  }
+}
+
 export default function AdminDashboard() {
   const navigate = useNavigate()
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [btcPrice, setBtcPrice] = useState<number>(0)
 
   useEffect(() => {
     const token = localStorage.getItem('token')
@@ -31,17 +38,27 @@ export default function AdminDashboard() {
     }
 
     fetchUsers()
+    fetchBtcPrice()
   }, [navigate])
+
+  const fetchBtcPrice = async () => {
+    try {
+      const response = await axios.get<PriceData>(
+        'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd'
+      )
+      setBtcPrice(response.data.bitcoin.usd)
+    } catch (error) {
+      console.error('Failed to fetch BTC price:', error)
+    }
+  }
 
   const fetchUsers = async () => {
     console.log('Fetching users...');
     try {
       const token = localStorage.getItem('token')
-      console.log('Token found:', !!token);
       const response = await axios.get('/api/admin/users', {
         headers: { Authorization: `Bearer ${token}` },
       })
-      console.log('Users fetched successfully:', response.data);
       setUsers(response.data)
       setLoading(false)
     } catch (err: any) {
@@ -49,7 +66,6 @@ export default function AdminDashboard() {
       setError(err.response?.data?.message || 'Failed to fetch users')
       setLoading(false)
       if (err.response?.status === 403) {
-        console.log('Access forbidden, redirecting to dashboard');
         navigate('/dashboard')
       }
     }
@@ -89,6 +105,22 @@ export default function AdminDashboard() {
     }
   }
 
+  // Auto-calculate BTC when investment amount changes
+  const handleInvestmentChange = (amount: number) => {
+    if (!editingUser) return
+    
+    let newBtcAllocated = editingUser.btcAllocated
+    if (btcPrice > 0 && amount > 0) {
+      newBtcAllocated = amount / btcPrice
+    }
+    
+    setEditingUser({
+      ...editingUser,
+      investmentAmount: amount,
+      btcAllocated: newBtcAllocated
+    })
+  }
+
   // Helper to safely format numbers
   const formatUSD = (val: any) => {
     const num = parseFloat(val)
@@ -107,13 +139,18 @@ export default function AdminDashboard() {
 
   if (loading) return <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">Loading Admin Panel...</div>
 
-  console.log('Rendering AdminDashboard with users:', users.length);
-
   return (
     <div className="min-h-screen bg-slate-900 text-white p-8">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-yellow-500">Admin Control Panel</h1>
+          <div>
+            <h1 className="text-3xl font-bold text-yellow-500">Admin Control Panel</h1>
+            {btcPrice > 0 && (
+              <p className="text-slate-400 text-sm mt-1">
+                Live BTC Price: <span className="text-green-400">${btcPrice.toLocaleString()}</span>
+              </p>
+            )}
+          </div>
           <button onClick={() => navigate('/dashboard')} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg">Back to Dashboard</button>
         </div>
 
@@ -166,9 +203,10 @@ export default function AdminDashboard() {
                 <input
                   type="number"
                   value={editingUser.investmentAmount}
-                  onChange={(e) => setEditingUser({ ...editingUser, investmentAmount: parseFloat(e.target.value) })}
+                  onChange={(e) => handleInvestmentChange(parseFloat(e.target.value) || 0)}
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:outline-none focus:border-yellow-500"
                 />
+                <p className="text-[10px] text-slate-500 mt-1 italic">* BTC Allocated will auto-calculate based on live price (${btcPrice.toLocaleString()})</p>
               </div>
               <div>
                 <label className="block text-sm text-slate-400 mb-1">Daily Return Rate (%)</label>
@@ -176,7 +214,7 @@ export default function AdminDashboard() {
                   type="number"
                   step="0.01"
                   value={editingUser.dailyReturnRate}
-                  onChange={(e) => setEditingUser({ ...editingUser, dailyReturnRate: parseFloat(e.target.value) })}
+                  onChange={(e) => setEditingUser({ ...editingUser, dailyReturnRate: parseFloat(e.target.value) || 0 })}
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:outline-none focus:border-yellow-500"
                 />
               </div>
@@ -186,7 +224,7 @@ export default function AdminDashboard() {
                   type="number"
                   step="0.00000001"
                   value={editingUser.btcAllocated}
-                  onChange={(e) => setEditingUser({ ...editingUser, btcAllocated: parseFloat(e.target.value) })}
+                  onChange={(e) => setEditingUser({ ...editingUser, btcAllocated: parseFloat(e.target.value) || 0 })}
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:outline-none focus:border-yellow-500"
                 />
               </div>
