@@ -5,6 +5,8 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import AdminDashboard from './pages/AdminDashboard'
 import Deposit from './pages/Deposit'
+import Withdrawal from './pages/Withdrawal'
+import Chat from './pages/Chat'
 
 export default function App() {
   return (
@@ -16,6 +18,8 @@ export default function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/deposit" element={<Deposit />} />
+        <Route path="/withdrawal" element={<Withdrawal />} />
+        <Route path="/chat" element={<Chat />} />
       </Routes>
     </Router>
   )
