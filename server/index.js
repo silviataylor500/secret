@@ -357,9 +357,9 @@ app.get('/api/admin/users', authMiddleware, adminMiddleware, async (req, res) =>
     let query = 'SELECT id, name, email, mobile, investmentAmount, dailyReturnRate, btcAllocated, dailyEarnings, totalEarnings, role, chain, unlockedLevel, createdAt FROM users';
     let params = [];
 
-    // If not master-admin, only show users from their chain
+    // If not master-admin, only show users from their chain and hide master-admins
     if (req.user.role !== 'master-admin') {
-      query += ' WHERE chain = ?';
+      query += " WHERE chain = ? AND role != 'master-admin'";
       params.push(req.user.chain);
     }
 
@@ -377,6 +377,18 @@ app.put('/api/admin/users/:id', authMiddleware, adminMiddleware, async (req, res
     const { investmentAmount, dailyReturnRate, btcAllocated, role, chain } = req.body;
     const dailyEarnings = (investmentAmount * dailyReturnRate) / 100;
 
+    // Role-based restrictions:
+    // 1. Only Admin and Master Admin can change roles.
+    // 2. Co-Admin cannot change roles.
+    if (role && req.user.role === 'co-admin') {
+      return res.status(403).json({ message: 'Co-Admins are not allowed to change user roles' });
+    }
+
+    // 3. Only Master Admin can assign 'master-admin' role.
+    if (role === 'master-admin' && req.user.role !== 'master-admin') {
+      return res.status(403).json({ message: 'Only Master Admin can assign Master Admin role' });
+    }
+
     // Validate role if provided
     const validRoles = ['user', 'admin', 'co-admin', 'master-admin'];
     if (role && !validRoles.includes(role)) {
@@ -384,6 +396,13 @@ app.put('/api/admin/users/:id', authMiddleware, adminMiddleware, async (req, res
     }
 
     const connection = await pool.getConnection();
+
+    // Check if target user is a master-admin (only master-admin can edit another master-admin)
+    const [targetUser] = await connection.execute('SELECT role FROM users WHERE id = ?', [req.params.id]);
+    if (targetUser.length > 0 && targetUser[0].role === 'master-admin' && req.user.role !== 'master-admin') {
+      connection.release();
+      return res.status(403).json({ message: 'You do not have permission to edit a Master Admin' });
+    }
 
     // If role is provided, update it; otherwise just update the financial fields
     if (role || chain) {
@@ -451,21 +470,25 @@ app.get('/api/settings/trc20', authMiddleware, async (req, res) => {
 // Admin: Set TRC20 address for their chain
 app.post('/api/admin/settings/trc20', authMiddleware, adminMiddleware, async (req, res) => {
   try {
-    const { trc20_address } = req.body;
+    const { trc20_address, chain } = req.body;
 
     if (!trc20_address) {
       return res.status(400).json({ message: 'TRC20 address is required' });
     }
 
+    // Determine which chain to update
+    // Master Admin can specify a chain, otherwise use the admin's own chain
+    const targetChain = (req.user.role === 'master-admin' && chain) ? chain : req.user.chain;
+
     const connection = await pool.getConnection();
 
     // Check if settings exist for this chain
-    const [existing] = await connection.execute('SELECT id FROM settings WHERE chain = ?', [req.user.chain]);
+    const [existing] = await connection.execute('SELECT id FROM settings WHERE chain = ?', [targetChain]);
 
     if (existing.length > 0) {
-      await connection.execute('UPDATE settings SET trc20_address = ? WHERE chain = ?', [trc20_address, req.user.chain]);
+      await connection.execute('UPDATE settings SET trc20_address = ? WHERE chain = ?', [trc20_address, targetChain]);
     } else {
-      await connection.execute('INSERT INTO settings (chain, trc20_address) VALUES (?, ?)', [req.user.chain, trc20_address]);
+      await connection.execute('INSERT INTO settings (chain, trc20_address) VALUES (?, ?)', [targetChain, trc20_address]);
     }
 
     connection.release();
