@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 
@@ -62,7 +62,8 @@ export default function AdminDashboard() {
   const [deposits, setDeposits] = useState<Deposit[]>([])
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([])
   const [messages, setMessages] = useState<Message[]>([])
-  const chatEndRef = useEffect(() => {
+  
+  useEffect(() => {
     const chatContainer = document.getElementById('chat-container');
     if (chatContainer) {
       chatContainer.scrollTop = chatContainer.scrollHeight;
