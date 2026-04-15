@@ -62,6 +62,12 @@ export default function AdminDashboard() {
   const [deposits, setDeposits] = useState<Deposit[]>([])
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([])
   const [messages, setMessages] = useState<Message[]>([])
+  const chatEndRef = useEffect(() => {
+    const chatContainer = document.getElementById('chat-container');
+    if (chatContainer) {
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+  }, [messages, selectedUserId]);
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [editingUser, setEditingUser] = useState<User | null>(null)
@@ -601,8 +607,8 @@ export default function AdminDashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Messages List */}
               <div className="lg:col-span-2 bg-slate-800 border border-slate-700 rounded-lg p-6">
-                <div className="space-y-4 max-h-96 overflow-y-auto">
-                  {messages.map(msg => (
+                <div id="chat-container" className="space-y-4 max-h-96 overflow-y-auto pr-2">
+                  {messages.filter(msg => !selectedUserId || msg.userId === selectedUserId).map(msg => (
                     <div
                       key={msg.id}
                       onClick={() => setSelectedUserId(msg.userId)}
