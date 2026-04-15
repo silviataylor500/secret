@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import mysql from 'mysql2/promise';
 import crypto from 'crypto';
@@ -981,12 +982,17 @@ app.post('/api/admin/chat/reply', authMiddleware, coAdminMiddleware, async (req,
 });
 
 // Static files
-app.use(express.static(path.join(__dirname, '../client/dist/public')));
-app.use(express.static(path.join(__dirname, '../client/dist')));
+const distPath = path.join(__dirname, '../dist/public');
+app.use(express.static(distPath));
 
 // SPA fallback
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+  const indexPath = path.join(distPath, 'index.html');
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.status(404).send('Frontend build not found. Please run "npm run build" first.');
+  }
 });
 
 // Start server
