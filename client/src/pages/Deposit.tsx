@@ -5,6 +5,7 @@ import axios from 'axios'
 export default function Deposit() {
   const navigate = useNavigate()
   const [trc20Address, setTrc20Address] = useState<string>('')
+  const [levelRates, setLevelRates] = useState<number[]>([0.05, 0.1, 0.15, 0.2, 0.25, 0.3])
   const [transactionId, setTransactionId] = useState<string>('')
   const [selectedLevel, setSelectedLevel] = useState<number>(0)
   const [loading, setLoading] = useState(true)
@@ -19,20 +20,28 @@ export default function Deposit() {
       return
     }
 
-    fetchTrc20Address()
+    fetchSettings()
   }, [navigate])
 
-  const fetchTrc20Address = async () => {
+  const fetchSettings = async () => {
     try {
       const token = localStorage.getItem('token')
-      const response = await axios.get('/api/settings/trc20', {
+      const response = await axios.get('/api/settings/all', {
         headers: { Authorization: `Bearer ${token}` },
       })
       setTrc20Address(response.data.trc20_address || '')
+      setLevelRates([
+        0.05, // Basic level default
+        response.data.level1_rate,
+        response.data.level2_rate,
+        response.data.level3_rate,
+        response.data.level4_rate,
+        response.data.level5_rate
+      ])
       setLoading(false)
     } catch (err: any) {
-      console.error('Failed to fetch TRC20 address:', err)
-      setError('Failed to load deposit address. Please try again.')
+      console.error('Failed to fetch settings:', err)
+      setError('Failed to load deposit settings. Please try again.')
       setLoading(false)
     }
   }
@@ -94,12 +103,12 @@ export default function Deposit() {
   }
 
   const levels = [
-    { value: 0, label: 'BASIC' },
-    { value: 1, label: 'Level 1' },
-    { value: 2, label: 'Level 2' },
-    { value: 3, label: 'Level 3' },
-    { value: 4, label: 'Level 4' },
-    { value: 5, label: 'Level 5' },
+    { value: 0, label: `BASIC (${levelRates[0]}%)` },
+    { value: 1, label: `Level 1 (${levelRates[1]}%)` },
+    { value: 2, label: `Level 2 (${levelRates[2]}%)` },
+    { value: 3, label: `Level 3 (${levelRates[3]}%)` },
+    { value: 4, label: `Level 4 (${levelRates[4]}%)` },
+    { value: 5, label: `Level 5 (${levelRates[5]}%)` },
   ]
 
   return (

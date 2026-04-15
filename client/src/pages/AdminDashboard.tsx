@@ -74,6 +74,13 @@ export default function AdminDashboard() {
   const [btcPrice, setBtcPrice] = useState<number>(0)
   const [trc20Address, setTrc20Address] = useState<string>('')
   const [newTrc20Address, setNewTrc20Address] = useState<string>('')
+  const [levelRates, setLevelRates] = useState({
+    level1: 0.05,
+    level2: 0.10,
+    level3: 0.15,
+    level4: 0.20,
+    level5: 0.25
+  })
   const [settingsChain, setSettingsChain] = useState<number>(1)
   const [activeTab, setActiveTab] = useState<'users' | 'deposits' | 'withdrawals' | 'chat' | 'settings'>('users')
   const [adminRole, setAdminRole] = useState<string>('admin')
@@ -100,7 +107,7 @@ export default function AdminDashboard() {
     fetchUsers()
     fetchBtcPrice()
     setSettingsChain(decoded.chain)
-    fetchTrc20Address(decoded.chain)
+    fetchSettings(decoded.chain)
     fetchDeposits()
     fetchWithdrawals()
     fetchMessages()
@@ -130,16 +137,23 @@ export default function AdminDashboard() {
     }
   }
 
-  const fetchTrc20Address = async (chain?: number) => {
+  const fetchSettings = async (chain?: number) => {
     try {
       const token = localStorage.getItem('token')
-      const response = await axios.get('/api/settings/trc20', {
+      const response = await axios.get('/api/settings/all', {
         headers: { Authorization: `Bearer ${token}` },
         params: chain ? { chain } : undefined
       })
       setTrc20Address(response.data.trc20_address || '')
+      setLevelRates({
+        level1: response.data.level1_rate,
+        level2: response.data.level2_rate,
+        level3: response.data.level3_rate,
+        level4: response.data.level4_rate,
+        level5: response.data.level5_rate
+      })
     } catch (err: any) {
-      console.error('Fetch TRC20 error:', err)
+      console.error('Fetch settings error:', err)
     }
   }
 
@@ -227,23 +241,25 @@ export default function AdminDashboard() {
     })
   }
 
-  const handleUpdateTrc20 = async () => {
-    if (!newTrc20Address.trim()) {
-      alert('Please enter a TRC20 address')
-      return
-    }
-
+  const handleUpdateSettings = async () => {
     try {
       const token = localStorage.getItem('token')
-      await axios.post('/api/admin/settings/trc20', {
-        trc20_address: newTrc20Address,
+      await axios.post('/api/admin/settings/update', {
+        trc20_address: newTrc20Address || trc20Address,
+        level1_rate: levelRates.level1,
+        level2_rate: levelRates.level2,
+        level3_rate: levelRates.level3,
+        level4_rate: levelRates.level4,
+        level5_rate: levelRates.level5,
         chain: adminRole === 'master-admin' ? settingsChain : undefined
       }, {
         headers: { Authorization: `Bearer ${token}` },
       })
-      setTrc20Address(newTrc20Address)
-      setNewTrc20Address('')
-      alert('TRC20 address updated successfully!')
+      if (newTrc20Address) {
+        setTrc20Address(newTrc20Address)
+        setNewTrc20Address('')
+      }
+      alert('Settings updated successfully!')
     } catch (err: any) {
       alert(err.response?.data?.message || 'Update failed')
     }
@@ -667,17 +683,18 @@ export default function AdminDashboard() {
           <div>
             <h1 className="text-3xl font-bold text-white mb-6">Settings</h1>
             <div className="bg-slate-800 border border-slate-700 rounded-lg p-8 max-w-2xl">
-              <h2 className="text-2xl font-bold text-white mb-6">TRC20 Deposit Address</h2>
-              <div className="space-y-4">
+              <div className="space-y-8">
+                {/* Chain Selection */}
                 {adminRole === 'master-admin' && (
                   <div>
-                    <label className="block text-slate-300 text-sm font-medium mb-2">Select Chain</label>
+                    <h2 className="text-xl font-bold text-white mb-4">Chain Selection</h2>
+                    <label className="block text-slate-300 text-sm font-medium mb-2">Select Chain to Manage</label>
                     <select
                       value={settingsChain}
                       onChange={(e) => {
                         const chain = parseInt(e.target.value);
                         setSettingsChain(chain);
-                        fetchTrc20Address(chain);
+                        fetchSettings(chain);
                       }}
                       className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-yellow-500"
                     >
@@ -687,27 +704,59 @@ export default function AdminDashboard() {
                     </select>
                   </div>
                 )}
+
+                {/* TRC20 Address */}
                 <div>
-                  <label className="block text-slate-300 text-sm font-medium mb-2">Current Address (Chain {adminRole === 'master-admin' ? settingsChain : adminChain})</label>
-                  <div className="bg-slate-900 border border-slate-700 rounded-lg p-4">
-                    <p className="text-white font-mono break-all">{trc20Address || 'No address set'}</p>
+                  <h2 className="text-xl font-bold text-white mb-4">TRC20 Deposit Address</h2>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-slate-300 text-sm font-medium mb-2">Current Address (Chain {adminRole === 'master-admin' ? settingsChain : adminChain})</label>
+                      <div className="bg-slate-900 border border-slate-700 rounded-lg p-4">
+                        <p className="text-white font-mono break-all">{trc20Address || 'No address set'}</p>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-slate-300 text-sm font-medium mb-2">New Address</label>
+                      <input
+                        type="text"
+                        value={newTrc20Address}
+                        onChange={(e) => setNewTrc20Address(e.target.value)}
+                        placeholder="Enter new TRC20 address"
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-yellow-500"
+                      />
+                    </div>
                   </div>
                 </div>
-                <div>
-                  <label className="block text-slate-300 text-sm font-medium mb-2">New Address</label>
-                  <input
-                    type="text"
-                    value={newTrc20Address}
-                    onChange={(e) => setNewTrc20Address(e.target.value)}
-                    placeholder="Enter new TRC20 address"
-                    className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-yellow-500"
-                  />
-                </div>
+
+                {/* Level Return Rates */}
+                {adminRole === 'master-admin' && (
+                  <div>
+                    <h2 className="text-xl font-bold text-white mb-4">Daily Return Rates (%)</h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {[1, 2, 3, 4, 5].map(level => (
+                        <div key={level}>
+                          <label className="block text-slate-300 text-sm font-medium mb-2">Level {level} Rate (%)</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={levelRates[`level${level}` as keyof typeof levelRates]}
+                            onChange={(e) => setLevelRates({
+                              ...levelRates,
+                              [`level${level}`]: parseFloat(e.target.value) || 0
+                            })}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-yellow-500"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <button
-                  onClick={handleUpdateTrc20}
-                  className="w-full bg-yellow-500 hover:bg-yellow-600 text-slate-900 font-bold py-2 rounded-lg transition"
+                  onClick={handleUpdateSettings}
+                  className="w-full bg-yellow-500 hover:bg-yellow-600 text-slate-900 font-bold py-3 rounded-lg transition"
                 >
-                  Update Address
+                  Save All Settings
                 </button>
               </div>
             </div>
