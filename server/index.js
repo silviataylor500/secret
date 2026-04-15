@@ -787,13 +787,28 @@ app.get('/api/admin/chat', authMiddleware, coAdminMiddleware, async (req, res) =
       params.push(req.user.chain);
     }
 
-    query += ' ORDER BY m.createdAt DESC';
+    query += ' ORDER BY m.createdAt ASC';
 
     const [messages] = await connection.execute(query, params);
     connection.release();
     res.json(messages);
   } catch (error) {
     res.status(500).json({ message: 'Failed to fetch chat messages' });
+  }
+});
+
+// User: Get their own chat messages
+app.get('/api/chat/messages', authMiddleware, async (req, res) => {
+  try {
+    const connection = await pool.getConnection();
+    const [messages] = await connection.execute(
+      'SELECT id, userId, message, senderRole, createdAt FROM messages WHERE userId = ? AND chain = ? ORDER BY createdAt ASC',
+      [req.user.id, req.user.chain]
+    );
+    connection.release();
+    res.json(messages);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch messages' });
   }
 });
 
@@ -808,10 +823,18 @@ app.post('/api/admin/chat/reply', authMiddleware, coAdminMiddleware, async (req,
 
     const connection = await pool.getConnection();
 
+    // Get the user's chain to ensure the reply is sent to the correct chain
+    const [users] = await connection.execute('SELECT chain FROM users WHERE id = ?', [userId]);
+    if (users.length === 0) {
+      connection.release();
+      return res.status(404).json({ message: 'User not found' });
+    }
+    const userChain = users[0].chain;
+
     const messageId = crypto.randomUUID();
     await connection.execute(
       'INSERT INTO messages (id, userId, coAdminId, chain, message, senderRole) VALUES (?, ?, ?, ?, ?, ?)',
-      [messageId, userId, req.user.id, req.user.chain, message, 'co-admin']
+      [messageId, userId, req.user.id, userChain, message, 'co-admin']
     );
 
     connection.release();
