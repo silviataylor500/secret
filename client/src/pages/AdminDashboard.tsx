@@ -81,7 +81,7 @@ export default function AdminDashboard() {
       return
     }
 
-    const decoded = JSON.parse(Buffer.from(token, 'base64').toString())
+    const decoded = JSON.parse(atob(token))
     setAdminRole(decoded.role)
     setAdminChain(decoded.chain)
 
