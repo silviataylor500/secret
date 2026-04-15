@@ -11,6 +11,12 @@ interface UserProfile {
   btcAllocated: number
   dailyEarnings: number
   totalEarnings: number
+  level0_amount: number
+  level1_amount: number
+  level2_amount: number
+  level3_amount: number
+  level4_amount: number
+  level5_amount: number
   role: string
   chain: number
   unlockedLevel: number
@@ -220,15 +226,13 @@ export default function Dashboard() {
                 <div className="space-y-3">
                   <div>
                     <p className="text-slate-400 text-sm">USD Invested</p>
-                    <p className="text-2xl font-bold text-white">${formatUSD(user?.investmentAmount)}</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-400 text-sm">BTC Allocated</p>
-                    <p className="text-2xl font-bold text-white">{formatBTC(user?.btcAllocated)} BTC</p>
+                    <p className="text-2xl font-bold text-white">${formatUSD(user?.[`level${levelItem.level}_amount` as keyof UserProfile])}</p>
                   </div>
                   <div>
                     <p className="text-slate-400 text-sm">Daily Earnings</p>
-                    <p className="text-2xl font-bold text-green-400">${formatUSD(user?.dailyEarnings)}</p>
+                    <p className="text-2xl font-bold text-green-400">
+                      ${formatUSD((parseFloat(user?.[`level${levelItem.level}_amount` as keyof UserProfile] as any) || 0) * (parseFloat(user?.dailyReturnRate as any) || 0) / 100)}
+                    </p>
                   </div>
                 </div>
                 {!isLevelUnlocked(levelItem.level) && (

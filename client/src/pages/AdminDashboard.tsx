@@ -467,6 +467,7 @@ export default function AdminDashboard() {
                       <td className="px-6 py-4 text-green-400 font-semibold">${formatUSD(user.investmentAmount)}</td>
                       <td className="px-6 py-4 text-slate-300 text-xs">
                         <div className="grid grid-cols-1 gap-0.5">
+                          <span>B: ${formatUSD(user.level0_amount)}</span>
                           <span>L1: ${formatUSD(user.level1_amount)}</span>
                           <span>L2: ${formatUSD(user.level2_amount)}</span>
                           <span>L3: ${formatUSD(user.level3_amount)}</span>
