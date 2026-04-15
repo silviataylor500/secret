@@ -314,9 +314,9 @@ app.post('/api/auth/signup', async (req, res) => {
 // Login
 app.post('/api/auth/login', async (req, res) => {
   try {
-    const { email, mobile, password } = req.body;
+    const { email, mobile, password, chain } = req.body;
 
-    if (!email || !mobile || !password) {
+    if (!email || !mobile || !password || !chain) {
       return res.status(400).json({ message: 'All fields are required' });
     }
 
@@ -333,15 +333,24 @@ app.post('/api/auth/login', async (req, res) => {
     }
 
     const user = users[0];
+
+    // Verify chain (Master Admin can log into any chain, others must match their assigned chain)
+    if (user.role !== 'master-admin' && user.chain !== parseInt(chain)) {
+      connection.release();
+      return res.status(401).json({ message: `This account is assigned to Chain ${user.chain}. Please select the correct chain.` });
+    }
+
+    // If Master Admin logs in, update their session chain to the selected one
+    const sessionChain = user.role === 'master-admin' ? parseInt(chain) : user.chain;
     const token = Buffer.from(JSON.stringify({
       id: user.id,
       email: user.email,
       role: user.role,
-      chain: user.chain,
+      chain: sessionChain,
     })).toString('base64');
 
     connection.release();
-    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, chain: user.chain } });
+    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, chain: sessionChain } });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ message: `Login failed: ${error.message}` });
@@ -468,8 +477,14 @@ app.delete('/api/admin/users/:id', authMiddleware, adminMiddleware, async (req, 
 // Get TRC20 address for user's chain
 app.get('/api/settings/trc20', authMiddleware, async (req, res) => {
   try {
+    const { chain } = req.query;
     const connection = await pool.getConnection();
-    const [settings] = await connection.execute('SELECT trc20_address FROM settings WHERE chain = ?', [req.user.chain]);
+    
+    // Determine which chain to fetch
+    // Master Admin can specify a chain, otherwise use the user's session chain
+    const targetChain = (req.user.role === 'master-admin' && chain) ? parseInt(chain) : req.user.chain;
+    
+    const [settings] = await connection.execute('SELECT trc20_address FROM settings WHERE chain = ?', [targetChain]);
     connection.release();
 
     if (settings.length === 0) {
