@@ -89,6 +89,27 @@ export default function AdminDashboard() {
   const [replyMessage, setReplyMessage] = useState<string>('')
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
 
+  // GLOBAL SAFETY WRAPPER FOR toLocaleString
+  const safeFormatUSD = (amount: any) => {
+    try {
+      const val = parseFloat(amount);
+      if (isNaN(val)) return '0.00';
+      return val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    } catch (e) {
+      return '0.00';
+    }
+  }
+
+  const safeFormatBTC = (amount: any) => {
+    try {
+      const val = parseFloat(amount);
+      if (isNaN(val)) return '0.00000000';
+      return val.toFixed(8);
+    } catch (e) {
+      return '0.00000000';
+    }
+  }
+
   useEffect(() => {
     const chatContainer = document.getElementById('chat-container');
     if (chatContainer) {
@@ -361,11 +382,6 @@ export default function AdminDashboard() {
     }
   }
 
-  const formatUSD = (amount: any) => {
-    const val = parseFloat(amount) || 0
-    return val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  }
-
   const getLevelName = (level: any) => {
     const val = parseInt(level) || 0
     return val === 0 ? 'BASIC' : `LEVEL ${val}`
@@ -478,18 +494,18 @@ export default function AdminDashboard() {
                     <tr key={user.id} className="hover:bg-slate-700/50">
                       <td className="px-6 py-4 text-white font-medium">{user.name}</td>
                       <td className="px-6 py-4 text-slate-400 text-sm">{user.email}</td>
-                      <td className="px-6 py-4 text-green-400 font-semibold">${formatUSD(user.investmentAmount)}</td>
+                      <td className="px-6 py-4 text-green-400 font-semibold">${safeFormatUSD(user.investmentAmount)}</td>
                       <td className="px-6 py-4 text-slate-300 text-xs">
                         <div className="grid grid-cols-1 gap-0.5">
-                          <span>B: ${formatUSD(user.level0_amount)}</span>
-                          <span>L1: ${formatUSD(user.level1_amount)}</span>
-                          <span>L2: ${formatUSD(user.level2_amount)}</span>
-                          <span>L3: ${formatUSD(user.level3_amount)}</span>
-                          <span>L4: ${formatUSD(user.level4_amount)}</span>
-                          <span>L5: ${formatUSD(user.level5_amount)}</span>
+                          <span>B: ${safeFormatUSD(user.level0_amount)}</span>
+                          <span>L1: ${safeFormatUSD(user.level1_amount)}</span>
+                          <span>L2: ${safeFormatUSD(user.level2_amount)}</span>
+                          <span>L3: ${safeFormatUSD(user.level3_amount)}</span>
+                          <span>L4: ${safeFormatUSD(user.level4_amount)}</span>
+                          <span>L5: ${safeFormatUSD(user.level5_amount)}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-yellow-400 font-mono text-sm">{(user.btcAllocated || 0).toFixed(8)} BTC</td>
+                      <td className="px-6 py-4 text-yellow-400 font-mono text-sm">{safeFormatBTC(user.btcAllocated)} BTC</td>
                       <td className="px-6 py-4">
                         <div className="flex gap-2">
                           <button
@@ -535,7 +551,7 @@ export default function AdminDashboard() {
                   {deposits.map(deposit => (
                     <tr key={deposit.id} className="hover:bg-slate-700/50">
                       <td className="px-6 py-4 text-white">{deposit.name}</td>
-                      <td className="px-6 py-4 text-green-400 font-semibold">${formatUSD(deposit.amount)}</td>
+                      <td className="px-6 py-4 text-green-400 font-semibold">${safeFormatUSD(deposit.amount)}</td>
                       <td className="px-6 py-4 text-yellow-400 font-semibold">{getLevelName(deposit.level)}</td>
                       <td className="px-6 py-4 text-slate-300 font-mono text-sm">{deposit.transactionId}</td>
                       <td className="px-6 py-4">
@@ -594,7 +610,7 @@ export default function AdminDashboard() {
                   {withdrawals.map(withdrawal => (
                     <tr key={withdrawal.id} className="hover:bg-slate-700/50">
                       <td className="px-6 py-4 text-white">{withdrawal.name}</td>
-                      <td className="px-6 py-4 text-green-400 font-semibold">${formatUSD(withdrawal.amount)}</td>
+                      <td className="px-6 py-4 text-green-400 font-semibold">${safeFormatUSD(withdrawal.amount)}</td>
                       <td className="px-6 py-4 text-slate-300 font-mono text-sm break-all">{withdrawal.trc20_address}</td>
                       <td className="px-6 py-4">
                         <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
@@ -790,7 +806,7 @@ export default function AdminDashboard() {
                   onChange={(e) => handleInvestmentChange(parseFloat(e.target.value) || 0)}
                   className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-yellow-500"
                 />
-                <p className="text-[10px] text-slate-500 mt-1 italic">* BTC Allocated will auto-calculate based on live price (${btcPrice ? btcPrice.toLocaleString() : 'Loading...'})</p>
+                <p className="text-[10px] text-slate-500 mt-1 italic">* BTC Allocated will auto-calculate based on live price (${btcPrice ? safeFormatUSD(btcPrice) : 'Loading...'})</p>
               </div>
               <div>
                 <label className="block text-sm text-slate-400 mb-1">Daily Return Rate (%)</label>
