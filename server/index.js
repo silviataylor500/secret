@@ -57,6 +57,7 @@ async function initDatabase() {
     const connection = await pool.getConnection();
     console.log('Successfully connected to the database.');
     
+    // Create users table with chain and level support
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS users (
         id VARCHAR(36) PRIMARY KEY,
@@ -69,39 +70,59 @@ async function initDatabase() {
         btcAllocated DECIMAL(16, 8) DEFAULT 0,
         dailyEarnings DECIMAL(10, 2) DEFAULT 0,
         totalEarnings DECIMAL(10, 2) DEFAULT 0,
-        role ENUM('user', 'admin', 'co-admin') DEFAULT 'user',
+        role ENUM('user', 'admin', 'co-admin', 'master-admin') DEFAULT 'user',
+        chain INT DEFAULT 1,
+        unlockedLevel INT DEFAULT 0,
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )
     `);
 
-    // Migrate existing role column to support co-admin if it doesn't already
+    // Migrate existing role column to support master-admin if it doesn't already
     try {
       await connection.execute(`
-        ALTER TABLE users MODIFY role ENUM('user', 'admin', 'co-admin') DEFAULT 'user'
+        ALTER TABLE users MODIFY role ENUM('user', 'admin', 'co-admin', 'master-admin') DEFAULT 'user'
       `);
-      console.log('Role column updated to support co-admin');
+      console.log('Role column updated to support master-admin');
     } catch (migrationError) {
-      // If the column already has co-admin, this will fail silently
-      console.log('Role column already supports co-admin or migration skipped');
+      console.log('Role column already supports master-admin or migration skipped');
     }
 
-    // Create settings table for storing TRC20 address
+    // Add chain and unlockedLevel columns if they don't exist
+    try {
+      await connection.execute(`ALTER TABLE users ADD COLUMN chain INT DEFAULT 1`);
+      console.log('Chain column added to users table');
+    } catch (e) {
+      console.log('Chain column already exists');
+    }
+
+    try {
+      await connection.execute(`ALTER TABLE users ADD COLUMN unlockedLevel INT DEFAULT 0`);
+      console.log('UnlockedLevel column added to users table');
+    } catch (e) {
+      console.log('UnlockedLevel column already exists');
+    }
+
+    // Create settings table for storing TRC20 address per chain
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS settings (
         id INT PRIMARY KEY AUTO_INCREMENT,
+        chain INT DEFAULT 1,
         trc20_address VARCHAR(255),
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_chain (chain)
       )
     `);
 
-    // Create deposits table for tracking user deposits
+    // Create deposits table for tracking user deposits with level support
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS deposits (
         id VARCHAR(36) PRIMARY KEY,
         userId VARCHAR(36) NOT NULL,
-        transactionId VARCHAR(255) NOT NULL UNIQUE,
+        chain INT DEFAULT 1,
+        transactionId VARCHAR(255) NOT NULL,
+        level INT DEFAULT 0,
         status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -109,11 +130,28 @@ async function initDatabase() {
       )
     `);
 
+    // Add level column to deposits if it doesn't exist
+    try {
+      await connection.execute(`ALTER TABLE deposits ADD COLUMN level INT DEFAULT 0`);
+      console.log('Level column added to deposits table');
+    } catch (e) {
+      console.log('Level column already exists in deposits table');
+    }
+
+    // Add chain column to deposits if it doesn't exist
+    try {
+      await connection.execute(`ALTER TABLE deposits ADD COLUMN chain INT DEFAULT 1`);
+      console.log('Chain column added to deposits table');
+    } catch (e) {
+      console.log('Chain column already exists in deposits table');
+    }
+
     // Create withdrawals table for tracking user withdrawals
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS withdrawals (
         id VARCHAR(36) PRIMARY KEY,
         userId VARCHAR(36) NOT NULL,
+        chain INT DEFAULT 1,
         amount DECIMAL(10, 2) NOT NULL,
         trc20_address VARCHAR(255) NOT NULL,
         status ENUM('pending', 'approved', 'rejected', 'completed') DEFAULT 'pending',
@@ -123,12 +161,21 @@ async function initDatabase() {
       )
     `);
 
+    // Add chain column to withdrawals if it doesn't exist
+    try {
+      await connection.execute(`ALTER TABLE withdrawals ADD COLUMN chain INT DEFAULT 1`);
+      console.log('Chain column added to withdrawals table');
+    } catch (e) {
+      console.log('Chain column already exists in withdrawals table');
+    }
+
     // Create messages table for customer service chat
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS messages (
         id VARCHAR(36) PRIMARY KEY,
         userId VARCHAR(36) NOT NULL,
         coAdminId VARCHAR(36),
+        chain INT DEFAULT 1,
         message TEXT NOT NULL,
         senderRole ENUM('user', 'co-admin') NOT NULL,
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -136,6 +183,14 @@ async function initDatabase() {
         FOREIGN KEY (coAdminId) REFERENCES users(id) ON DELETE SET NULL
       )
     `);
+
+    // Add chain column to messages if it doesn't exist
+    try {
+      await connection.execute(`ALTER TABLE messages ADD COLUMN chain INT DEFAULT 1`);
+      console.log('Chain column added to messages table');
+    } catch (e) {
+      console.log('Chain column already exists in messages table');
+    }
 
     connection.release();
     console.log('Database tables initialized successfully');
@@ -148,14 +203,13 @@ async function initDatabase() {
     } else if (error.code === 'ER_BAD_DB_ERROR') {
       console.error('Database does not exist. Please check your database name.');
     }
+    process.exit(1);
   }
 }
 
 // Hash password
 function hashPassword(password) {
-  return crypto
-    .pbkdf2Sync(password, 'salt', 1000, 64, 'sha512')
-    .toString('hex');
+  return crypto.createHash('sha256').update(password).digest('hex');
 }
 
 // Verify password
@@ -163,120 +217,75 @@ function verifyPassword(password, hash) {
   return hashPassword(password) === hash;
 }
 
-// Generate JWT token
-function generateToken(userId) {
-  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64');
-  const payload = Buffer.from(
-    JSON.stringify({
-      userId,
-      iat: Math.floor(Date.now() / 1000),
-      exp: Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60,
-    })
-  ).toString('base64');
-  const signature = crypto
-    .createHmac('sha256', process.env.JWT_SECRET || 'secret')
-    .update(`${header}.${payload}`)
-    .digest('base64');
-  return `${header}.${payload}.${signature}`;
-}
-
-// Verify JWT token
-function verifyToken(token) {
-  try {
-    const [header, payload, signature] = token.split('.');
-    const expectedSignature = crypto
-      .createHmac('sha256', process.env.JWT_SECRET || 'secret')
-      .update(`${header}.${payload}`)
-      .digest('base64');
-
-    if (signature !== expectedSignature) return null;
-
-    const decoded = JSON.parse(Buffer.from(payload, 'base64').toString());
-    if (decoded.exp < Math.floor(Date.now() / 1000)) return null;
-
-    return { userId: decoded.userId };
-  } catch {
-    return null;
-  }
-}
-
 // Auth middleware
-async function authMiddleware(req, res, next) {
-  const token = req.headers.authorization?.replace('Bearer ', '');
+const authMiddleware = (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
   if (!token) {
-    return res.status(401).json({ message: 'Unauthorized' });
+    return res.status(401).json({ message: 'No token provided' });
   }
 
-  const decoded = verifyToken(token);
-  if (!decoded) {
-    return res.status(401).json({ message: 'Invalid token' });
+  try {
+    const decoded = JSON.parse(Buffer.from(token, 'base64').toString());
+    req.user = decoded;
+    next();
+  } catch (error) {
+    res.status(401).json({ message: 'Invalid token' });
   }
+};
 
-  req.userId = decoded.userId;
+// Admin middleware (admin or master-admin only)
+const adminMiddleware = (req, res, next) => {
+  if (req.user.role !== 'admin' && req.user.role !== 'master-admin') {
+    return res.status(403).json({ message: 'Admin access required' });
+  }
   next();
-}
+};
 
-// Admin Middleware
-async function adminMiddleware(req, res, next) {
-  try {
-    const connection = await pool.getConnection();
-    const [users] = await connection.execute('SELECT role FROM users WHERE id = ?', [req.userId]);
-    connection.release();
-
-    if (users.length === 0 || users[0].role !== 'admin') {
-      return res.status(403).json({ message: 'Forbidden: Admin access required' });
-    }
-    next();
-  } catch (error) {
-    res.status(500).json({ message: 'Internal server error' });
+// Co-Admin middleware (co-admin or master-admin only)
+const coAdminMiddleware = (req, res, next) => {
+  if (req.user.role !== 'co-admin' && req.user.role !== 'master-admin') {
+    return res.status(403).json({ message: 'Co-Admin access required' });
   }
-}
+  next();
+};
 
-// Co-Admin Middleware
-async function coAdminMiddleware(req, res, next) {
-  try {
-    const connection = await pool.getConnection();
-    const [users] = await connection.execute('SELECT role FROM users WHERE id = ?', [req.userId]);
-    connection.release();
-
-    if (users.length === 0 || (users[0].role !== 'co-admin' && users[0].role !== 'admin')) {
-      return res.status(403).json({ message: 'Forbidden: Co-Admin access required' });
-    }
-    next();
-  } catch (error) {
-    res.status(500).json({ message: 'Internal server error' });
+// Master Admin middleware
+const masterAdminMiddleware = (req, res, next) => {
+  if (req.user.role !== 'master-admin') {
+    return res.status(403).json({ message: 'Master Admin access required' });
   }
-}
+  next();
+};
 
 // Routes
 
 // Signup
 app.post('/api/auth/signup', async (req, res) => {
   try {
-    const { name, email, mobile, password } = req.body;
+    const { name, email, mobile, password, chain } = req.body;
 
-    if (!name || !email || !mobile || !password) {
+    if (!name || !email || !mobile || !password || !chain) {
       return res.status(400).json({ message: 'All fields are required' });
+    }
+
+    if (chain < 1 || chain > 10) {
+      return res.status(400).json({ message: 'Chain must be between 1 and 10' });
     }
 
     const connection = await pool.getConnection();
 
-    const [existing] = await connection.execute('SELECT id FROM users WHERE email = ? OR mobile = ?', [
-      email,
-      mobile,
-    ]);
-
-    if (existing.length > 0) {
+    const [existingUsers] = await connection.execute('SELECT id FROM users WHERE email = ? OR mobile = ?', [email, mobile]);
+    if (existingUsers.length > 0) {
       connection.release();
-      return res.status(400).json({ message: 'User already exists' });
+      return res.status(400).json({ message: 'Email or mobile already exists' });
     }
 
     const userId = crypto.randomUUID();
     const hashedPassword = hashPassword(password);
 
     await connection.execute(
-      'INSERT INTO users (id, name, email, mobile, password) VALUES (?, ?, ?, ?, ?)',
-      [userId, name, email, mobile, hashedPassword]
+      'INSERT INTO users (id, name, email, mobile, password, chain, unlockedLevel) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [userId, name, email, mobile, hashedPassword, chain, 0]
     );
 
     connection.release();
@@ -303,23 +312,24 @@ app.post('/api/auth/login', async (req, res) => {
       mobile,
     ]);
 
-    connection.release();
-
-    if (users.length === 0) {
+    if (users.length === 0 || !verifyPassword(password, users[0].password)) {
+      connection.release();
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
     const user = users[0];
+    const token = Buffer.from(JSON.stringify({
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      chain: user.chain,
+    })).toString('base64');
 
-    if (!verifyPassword(password, user.password)) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-
-    const token = generateToken(user.id);
-    res.json({ token, userId: user.id });
+    connection.release();
+    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, chain: user.chain } });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ message: 'Login failed' });
+    res.status(500).json({ message: `Login failed: ${error.message}` });
   }
 });
 
@@ -327,38 +337,33 @@ app.post('/api/auth/login', async (req, res) => {
 app.get('/api/user/profile', authMiddleware, async (req, res) => {
   try {
     const connection = await pool.getConnection();
-
-    const [users] = await connection.execute('SELECT * FROM users WHERE id = ?', [req.userId]);
-
+    const [users] = await connection.execute('SELECT id, name, email, mobile, investmentAmount, dailyReturnRate, btcAllocated, dailyEarnings, totalEarnings, role, chain, unlockedLevel FROM users WHERE id = ?', [req.user.id]);
     connection.release();
 
     if (users.length === 0) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    const user = users[0];
-    res.json({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      investmentAmount: user.investmentAmount,
-      dailyReturnRate: user.dailyReturnRate,
-      btcAllocated: user.btcAllocated,
-      dailyEarnings: user.dailyEarnings,
-      totalEarnings: user.totalEarnings,
-      role: user.role,
-    });
+    res.json(users[0]);
   } catch (error) {
-    console.error('Profile error:', error);
-    res.status(500).json({ message: 'Failed to fetch profile' });
+    res.status(500).json({ message: 'Failed to fetch user profile' });
   }
 });
 
-// Admin: Get all users
+// Admin: Get all users in their chain
 app.get('/api/admin/users', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const connection = await pool.getConnection();
-    const [users] = await connection.execute('SELECT id, name, email, mobile, investmentAmount, dailyReturnRate, btcAllocated, dailyEarnings, totalEarnings, role, createdAt FROM users');
+    let query = 'SELECT id, name, email, mobile, investmentAmount, dailyReturnRate, btcAllocated, dailyEarnings, totalEarnings, role, chain, unlockedLevel, createdAt FROM users';
+    let params = [];
+
+    // If not master-admin, only show users from their chain
+    if (req.user.role !== 'master-admin') {
+      query += ' WHERE chain = ?';
+      params.push(req.user.chain);
+    }
+
+    const [users] = await connection.execute(query, params);
     connection.release();
     res.json(users);
   } catch (error) {
@@ -369,24 +374,43 @@ app.get('/api/admin/users', authMiddleware, adminMiddleware, async (req, res) =>
 // Admin: Update user investment/return rate and role
 app.put('/api/admin/users/:id', authMiddleware, adminMiddleware, async (req, res) => {
   try {
-    const { investmentAmount, dailyReturnRate, btcAllocated, role } = req.body;
+    const { investmentAmount, dailyReturnRate, btcAllocated, role, chain } = req.body;
     const dailyEarnings = (investmentAmount * dailyReturnRate) / 100;
-    
+
+    // Validate role if provided
+    const validRoles = ['user', 'admin', 'co-admin', 'master-admin'];
+    if (role && !validRoles.includes(role)) {
+      return res.status(400).json({ message: `Invalid role. Must be one of: ${validRoles.join(', ')}` });
+    }
+
     const connection = await pool.getConnection();
-    
+
     // If role is provided, update it; otherwise just update the financial fields
-    if (role) {
-      await connection.execute(
-        'UPDATE users SET investmentAmount = ?, dailyReturnRate = ?, btcAllocated = ?, dailyEarnings = ?, role = ? WHERE id = ?',
-        [investmentAmount, dailyReturnRate, btcAllocated, dailyEarnings, role, req.params.id]
-      );
+    if (role || chain) {
+      let updateQuery = 'UPDATE users SET investmentAmount = ?, dailyReturnRate = ?, btcAllocated = ?, dailyEarnings = ?';
+      let params = [investmentAmount, dailyReturnRate, btcAllocated, dailyEarnings];
+
+      if (role) {
+        updateQuery += ', role = ?';
+        params.push(role);
+      }
+
+      if (chain && req.user.role === 'master-admin') {
+        updateQuery += ', chain = ?';
+        params.push(chain);
+      }
+
+      updateQuery += ' WHERE id = ?';
+      params.push(req.params.id);
+
+      await connection.execute(updateQuery, params);
     } else {
       await connection.execute(
         'UPDATE users SET investmentAmount = ?, dailyReturnRate = ?, btcAllocated = ?, dailyEarnings = ? WHERE id = ?',
         [investmentAmount, dailyReturnRate, btcAllocated, dailyEarnings, req.params.id]
       );
     }
-    
+
     connection.release();
     res.json({ message: 'User updated successfully' });
   } catch (error) {
@@ -407,21 +431,24 @@ app.delete('/api/admin/users/:id', authMiddleware, adminMiddleware, async (req, 
   }
 });
 
-// Admin: Get TRC20 address
-app.get('/api/admin/settings/trc20', authMiddleware, adminMiddleware, async (req, res) => {
+// Get TRC20 address for user's chain
+app.get('/api/settings/trc20', authMiddleware, async (req, res) => {
   try {
     const connection = await pool.getConnection();
-    const [settings] = await connection.execute('SELECT trc20_address FROM settings LIMIT 1');
+    const [settings] = await connection.execute('SELECT trc20_address FROM settings WHERE chain = ?', [req.user.chain]);
     connection.release();
-    
-    const trc20Address = settings.length > 0 ? settings[0].trc20_address : '';
-    res.json({ trc20_address: trc20Address });
+
+    if (settings.length === 0) {
+      return res.json({ trc20_address: '' });
+    }
+
+    res.json({ trc20_address: settings[0].trc20_address });
   } catch (error) {
     res.status(500).json({ message: 'Failed to fetch TRC20 address' });
   }
 });
 
-// Admin: Set TRC20 address
+// Admin: Set TRC20 address for their chain
 app.post('/api/admin/settings/trc20', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const { trc20_address } = req.body;
@@ -431,92 +458,76 @@ app.post('/api/admin/settings/trc20', authMiddleware, adminMiddleware, async (re
     }
 
     const connection = await pool.getConnection();
-    
-    // Check if settings exist
-    const [existing] = await connection.execute('SELECT id FROM settings LIMIT 1');
-    
+
+    // Check if settings exist for this chain
+    const [existing] = await connection.execute('SELECT id FROM settings WHERE chain = ?', [req.user.chain]);
+
     if (existing.length > 0) {
-      // Update existing
-      await connection.execute('UPDATE settings SET trc20_address = ? WHERE id = 1', [trc20_address]);
+      await connection.execute('UPDATE settings SET trc20_address = ? WHERE chain = ?', [trc20_address, req.user.chain]);
     } else {
-      // Insert new
-      await connection.execute('INSERT INTO settings (trc20_address) VALUES (?)', [trc20_address]);
+      await connection.execute('INSERT INTO settings (chain, trc20_address) VALUES (?, ?)', [req.user.chain, trc20_address]);
     }
-    
+
     connection.release();
     res.json({ message: 'TRC20 address updated successfully' });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to update TRC20 address' });
+    console.error('TRC20 update error:', error.message);
+    res.status(500).json({ message: `Failed to update TRC20 address: ${error.message}` });
   }
 });
 
-// User: Get TRC20 address (for deposit page)
-app.get('/api/deposit/trc20', authMiddleware, async (req, res) => {
+// User: Submit deposit with level
+app.post('/api/deposits/submit', authMiddleware, async (req, res) => {
   try {
-    const connection = await pool.getConnection();
-    const [settings] = await connection.execute('SELECT trc20_address FROM settings LIMIT 1');
-    connection.release();
-    
-    const trc20Address = settings.length > 0 ? settings[0].trc20_address : '';
-    res.json({ trc20_address: trc20Address });
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch TRC20 address' });
-  }
-});
+    const { transactionId, level } = req.body;
 
-// User: Submit deposit (transaction ID)
-app.post('/api/deposit/submit', authMiddleware, async (req, res) => {
-  try {
-    const { transactionId } = req.body;
-
-    if (!transactionId) {
-      return res.status(400).json({ message: 'Transaction ID is required' });
+    if (!transactionId || level === undefined) {
+      return res.status(400).json({ message: 'Transaction ID and level are required' });
     }
 
-    // Validate transaction ID length (5-30 characters) and alphanumeric
-    if (transactionId.length < 5 || transactionId.length > 30) {
-      return res.status(400).json({ message: 'Transaction ID must be between 5 and 30 characters' });
+    if (transactionId.length < 5 || transactionId.length > 30 || !/^[a-zA-Z0-9]+$/.test(transactionId)) {
+      return res.status(400).json({ message: 'Transaction ID must be 5-30 alphanumeric characters' });
     }
 
-    // Validate that transaction ID is alphanumeric
-    if (!/^[a-zA-Z0-9]+$/.test(transactionId)) {
-      return res.status(400).json({ message: 'Transaction ID must contain only letters and numbers' });
+    if (level < 0 || level > 5) {
+      return res.status(400).json({ message: 'Level must be between 0 (Basic) and 5' });
     }
 
     const connection = await pool.getConnection();
-
-    // Check if transaction ID already exists
-    const [existing] = await connection.execute('SELECT id FROM deposits WHERE transactionId = ?', [transactionId]);
-    
-    if (existing.length > 0) {
-      connection.release();
-      return res.status(400).json({ message: 'This transaction ID has already been submitted' });
-    }
 
     const depositId = crypto.randomUUID();
     await connection.execute(
-      'INSERT INTO deposits (id, userId, transactionId) VALUES (?, ?, ?)',
-      [depositId, req.userId, transactionId]
+      'INSERT INTO deposits (id, userId, chain, transactionId, level, status) VALUES (?, ?, ?, ?, ?, ?)',
+      [depositId, req.user.id, req.user.chain, transactionId, level, 'pending']
     );
 
     connection.release();
-    res.json({ message: 'Deposit submitted successfully. Awaiting admin approval.' });
+    res.json({ message: 'Deposit submitted successfully' });
   } catch (error) {
-    console.error('Deposit error:', error);
-    res.status(500).json({ message: 'Failed to submit deposit' });
+    console.error('Deposit submission error:', error.message);
+    res.status(500).json({ message: `Failed to submit deposit: ${error.message}` });
   }
 });
 
-// Admin: Get all deposits
+// Admin: Get deposits for their chain
 app.get('/api/admin/deposits', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const connection = await pool.getConnection();
-    const [deposits] = await connection.execute(`
-      SELECT d.id, d.userId, u.name, u.email, d.transactionId, d.status, d.createdAt 
-      FROM deposits d 
-      JOIN users u ON d.userId = u.id 
-      ORDER BY d.createdAt DESC
-    `);
+    let query = `
+      SELECT d.id, d.userId, u.name, u.email, d.transactionId, d.level, d.status, d.createdAt
+      FROM deposits d
+      JOIN users u ON d.userId = u.id
+    `;
+    let params = [];
+
+    if (req.user.role !== 'master-admin') {
+      query += ' WHERE d.chain = ?';
+      params.push(req.user.chain);
+    }
+
+    query += ' ORDER BY d.createdAt DESC';
+
+    const [deposits] = await connection.execute(query, params);
     connection.release();
     res.json(deposits);
   } catch (error) {
@@ -525,19 +536,38 @@ app.get('/api/admin/deposits', authMiddleware, adminMiddleware, async (req, res)
 });
 
 // Admin: Approve deposit
-app.put('/api/admin/deposits/:id/approve', authMiddleware, adminMiddleware, async (req, res) => {
+app.post('/api/admin/deposits/:id/approve', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const connection = await pool.getConnection();
+
+    // Get deposit details
+    const [deposits] = await connection.execute('SELECT * FROM deposits WHERE id = ?', [req.params.id]);
+    if (deposits.length === 0) {
+      connection.release();
+      return res.status(404).json({ message: 'Deposit not found' });
+    }
+
+    const deposit = deposits[0];
+
+    // Update deposit status
     await connection.execute('UPDATE deposits SET status = ? WHERE id = ?', ['approved', req.params.id]);
+
+    // Update user's unlocked level
+    await connection.execute(
+      'UPDATE users SET unlockedLevel = ? WHERE id = ?',
+      [Math.max(deposit.level, deposit.level), deposit.userId]
+    );
+
     connection.release();
     res.json({ message: 'Deposit approved successfully' });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to approve deposit' });
+    console.error('Deposit approval error:', error.message);
+    res.status(500).json({ message: `Failed to approve deposit: ${error.message}` });
   }
 });
 
 // Admin: Reject deposit
-app.put('/api/admin/deposits/:id/reject', authMiddleware, adminMiddleware, async (req, res) => {
+app.post('/api/admin/deposits/:id/reject', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const connection = await pool.getConnection();
     await connection.execute('UPDATE deposits SET status = ? WHERE id = ?', ['rejected', req.params.id]);
@@ -548,8 +578,8 @@ app.put('/api/admin/deposits/:id/reject', authMiddleware, adminMiddleware, async
   }
 });
 
-// User: Submit withdrawal request
-app.post('/api/withdrawal/submit', authMiddleware, async (req, res) => {
+// User: Submit withdrawal
+app.post('/api/withdrawals/submit', authMiddleware, async (req, res) => {
   try {
     const { amount, trc20_address } = req.body;
 
@@ -565,28 +595,37 @@ app.post('/api/withdrawal/submit', authMiddleware, async (req, res) => {
 
     const withdrawalId = crypto.randomUUID();
     await connection.execute(
-      'INSERT INTO withdrawals (id, userId, amount, trc20_address) VALUES (?, ?, ?, ?)',
-      [withdrawalId, req.userId, amount, trc20_address]
+      'INSERT INTO withdrawals (id, userId, chain, amount, trc20_address, status) VALUES (?, ?, ?, ?, ?, ?)',
+      [withdrawalId, req.user.id, req.user.chain, amount, trc20_address, 'pending']
     );
 
     connection.release();
-    res.json({ message: 'Withdrawal request submitted successfully. Awaiting admin approval.' });
+    res.json({ message: 'Withdrawal submitted successfully' });
   } catch (error) {
-    console.error('Withdrawal error:', error);
-    res.status(500).json({ message: 'Failed to submit withdrawal request' });
+    console.error('Withdrawal submission error:', error.message);
+    res.status(500).json({ message: `Failed to submit withdrawal: ${error.message}` });
   }
 });
 
-// Admin/Co-Admin: Get all withdrawals
-app.get('/api/admin/withdrawals', authMiddleware, coAdminMiddleware, async (req, res) => {
+// Admin: Get withdrawals for their chain
+app.get('/api/admin/withdrawals', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const connection = await pool.getConnection();
-    const [withdrawals] = await connection.execute(`
-      SELECT w.id, w.userId, u.name, u.email, w.amount, w.trc20_address, w.status, w.createdAt 
-      FROM withdrawals w 
-      JOIN users u ON w.userId = u.id 
-      ORDER BY w.createdAt DESC
-    `);
+    let query = `
+      SELECT w.id, w.userId, u.name, u.email, w.amount, w.trc20_address, w.status, w.createdAt
+      FROM withdrawals w
+      JOIN users u ON w.userId = u.id
+    `;
+    let params = [];
+
+    if (req.user.role !== 'master-admin') {
+      query += ' WHERE w.chain = ?';
+      params.push(req.user.chain);
+    }
+
+    query += ' ORDER BY w.createdAt DESC';
+
+    const [withdrawals] = await connection.execute(query, params);
     connection.release();
     res.json(withdrawals);
   } catch (error) {
@@ -594,8 +633,8 @@ app.get('/api/admin/withdrawals', authMiddleware, coAdminMiddleware, async (req,
   }
 });
 
-// Admin/Co-Admin: Approve withdrawal
-app.put('/api/admin/withdrawals/:id/approve', authMiddleware, coAdminMiddleware, async (req, res) => {
+// Admin: Approve withdrawal
+app.post('/api/admin/withdrawals/:id/approve', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const connection = await pool.getConnection();
     await connection.execute('UPDATE withdrawals SET status = ? WHERE id = ?', ['approved', req.params.id]);
@@ -606,8 +645,8 @@ app.put('/api/admin/withdrawals/:id/approve', authMiddleware, coAdminMiddleware,
   }
 });
 
-// Admin/Co-Admin: Reject withdrawal
-app.put('/api/admin/withdrawals/:id/reject', authMiddleware, coAdminMiddleware, async (req, res) => {
+// Admin: Reject withdrawal
+app.post('/api/admin/withdrawals/:id/reject', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const connection = await pool.getConnection();
     await connection.execute('UPDATE withdrawals SET status = ? WHERE id = ?', ['rejected', req.params.id]);
@@ -618,78 +657,50 @@ app.put('/api/admin/withdrawals/:id/reject', authMiddleware, coAdminMiddleware, 
   }
 });
 
-// User: Send message to co-admin
+// User: Submit chat message
 app.post('/api/chat/send', authMiddleware, async (req, res) => {
   try {
     const { message } = req.body;
 
-    if (!message || message.trim() === '') {
-      return res.status(400).json({ message: 'Message cannot be empty' });
+    if (!message) {
+      return res.status(400).json({ message: 'Message is required' });
     }
 
     const connection = await pool.getConnection();
 
     const messageId = crypto.randomUUID();
     await connection.execute(
-      'INSERT INTO messages (id, userId, message, senderRole) VALUES (?, ?, ?, ?)',
-      [messageId, req.userId, message, 'user']
+      'INSERT INTO messages (id, userId, chain, message, senderRole) VALUES (?, ?, ?, ?, ?)',
+      [messageId, req.user.id, req.user.chain, message, 'user']
     );
 
     connection.release();
     res.json({ message: 'Message sent successfully' });
   } catch (error) {
-    console.error('Chat error:', error);
-    res.status(500).json({ message: 'Failed to send message' });
+    console.error('Chat message error:', error.message);
+    res.status(500).json({ message: `Failed to send message: ${error.message}` });
   }
 });
 
-// User: Get chat messages
-app.get('/api/chat/messages', authMiddleware, async (req, res) => {
+// Co-Admin: Get chat messages for their chain
+app.get('/api/admin/chat', authMiddleware, coAdminMiddleware, async (req, res) => {
   try {
     const connection = await pool.getConnection();
-
-    const [messages] = await connection.execute(
-      'SELECT id, userId, message, senderRole, createdAt FROM messages WHERE userId = ? ORDER BY createdAt ASC',
-      [req.userId]
-    );
-
-    connection.release();
-    res.json(messages);
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch messages' });
-  }
-});
-
-// Co-Admin: Get all user chats
-app.get('/api/admin/chats', authMiddleware, coAdminMiddleware, async (req, res) => {
-  try {
-    const connection = await pool.getConnection();
-
-    const [chats] = await connection.execute(`
-      SELECT DISTINCT m.userId, u.name, u.email, COUNT(m.id) as messageCount, MAX(m.createdAt) as lastMessage
+    let query = `
+      SELECT m.id, m.userId, u.name, u.email, m.message, m.senderRole, m.createdAt
       FROM messages m
       JOIN users u ON m.userId = u.id
-      GROUP BY m.userId, u.name, u.email
-      ORDER BY MAX(m.createdAt) DESC
-    `);
+    `;
+    let params = [];
 
-    connection.release();
-    res.json(chats);
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch chats' });
-  }
-});
+    if (req.user.role !== 'master-admin') {
+      query += ' WHERE m.chain = ?';
+      params.push(req.user.chain);
+    }
 
-// Co-Admin: Get specific user chat
-app.get('/api/admin/chat/:userId', authMiddleware, coAdminMiddleware, async (req, res) => {
-  try {
-    const connection = await pool.getConnection();
+    query += ' ORDER BY m.createdAt DESC';
 
-    const [messages] = await connection.execute(
-      'SELECT id, userId, message, senderRole, createdAt FROM messages WHERE userId = ? ORDER BY createdAt ASC',
-      [req.params.userId]
-    );
-
+    const [messages] = await connection.execute(query, params);
     connection.release();
     res.json(messages);
   } catch (error) {
@@ -697,12 +708,12 @@ app.get('/api/admin/chat/:userId', authMiddleware, coAdminMiddleware, async (req
   }
 });
 
-// Co-Admin: Send message to user
-app.post('/api/admin/chat/send', authMiddleware, coAdminMiddleware, async (req, res) => {
+// Co-Admin: Send chat reply
+app.post('/api/admin/chat/reply', authMiddleware, coAdminMiddleware, async (req, res) => {
   try {
     const { userId, message } = req.body;
 
-    if (!userId || !message || message.trim() === '') {
+    if (!userId || !message) {
       return res.status(400).json({ message: 'User ID and message are required' });
     }
 
@@ -710,32 +721,36 @@ app.post('/api/admin/chat/send', authMiddleware, coAdminMiddleware, async (req, 
 
     const messageId = crypto.randomUUID();
     await connection.execute(
-      'INSERT INTO messages (id, userId, coAdminId, message, senderRole) VALUES (?, ?, ?, ?, ?)',
-      [messageId, userId, req.userId, message, 'co-admin']
+      'INSERT INTO messages (id, userId, coAdminId, chain, message, senderRole) VALUES (?, ?, ?, ?, ?, ?)',
+      [messageId, userId, req.user.id, req.user.chain, message, 'co-admin']
     );
 
     connection.release();
-    res.json({ message: 'Message sent successfully' });
+    res.json({ message: 'Reply sent successfully' });
   } catch (error) {
-    console.error('Chat error:', error);
-    res.status(500).json({ message: 'Failed to send message' });
+    console.error('Chat reply error:', error.message);
+    res.status(500).json({ message: `Failed to send reply: ${error.message}` });
   }
 });
 
-// Serve static files
+// Static files
 app.use(express.static(path.join(__dirname, '../client/dist/public')));
+app.use(express.static(path.join(__dirname, '../client/dist')));
 
 // SPA fallback
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../client/dist/public/index.html'));
+  res.sendFile(path.join(__dirname, '../client/dist/index.html'));
 });
 
 // Start server
-async function start() {
+async function startServer() {
   await initDatabase();
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
 }
 
-start().catch(console.error);
+startServer().catch(error => {
+  console.error('Failed to start server:', error);
+  process.exit(1);
+});
