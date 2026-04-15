@@ -983,15 +983,18 @@ app.post('/api/admin/chat/reply', authMiddleware, coAdminMiddleware, async (req,
 
 // Static files
 const distPath = path.join(__dirname, '../dist/public');
+console.log('Serving static files from:', distPath);
 app.use(express.static(distPath));
 
 // SPA fallback
 app.get('*', (req, res) => {
   const indexPath = path.join(distPath, 'index.html');
+  console.log('Falling back to SPA index:', indexPath);
   if (fs.existsSync(indexPath)) {
     res.sendFile(indexPath);
   } else {
-    res.status(404).send('Frontend build not found. Please run "npm run build" first.');
+    console.error('CRITICAL: index.html not found at', indexPath);
+    res.status(404).send('Frontend build not found. Please ensure "npm run build" completed successfully.');
   }
 });
 
