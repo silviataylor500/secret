@@ -139,6 +139,19 @@ async function initDatabase() {
       } catch (e) {}
     }
 
+    // MIGRATION: For existing users who have investmentAmount but level0_amount is 0
+    // We move their investmentAmount into level0_amount (BASIC level)
+    try {
+      await connection.execute(`
+        UPDATE users 
+        SET level0_amount = investmentAmount 
+        WHERE investmentAmount > 0 AND level0_amount = 0
+      `);
+      console.log('Migration: level0_amount populated for existing users');
+    } catch (migrationError) {
+      console.log('Migration skipped or failed:', migrationError.message);
+    }
+
     // Create settings table for storing TRC20 address and level rates per chain
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS settings (
@@ -435,7 +448,7 @@ app.post('/api/auth/login', async (req, res) => {
 app.get('/api/user/profile', authMiddleware, async (req, res) => {
   try {
     const connection = await pool.getConnection();
-    const [users] = await connection.execute('SELECT id, name, email, mobile, investmentAmount, dailyReturnRate, btcAllocated, dailyEarnings, totalEarnings, role, chain, unlockedLevel FROM users WHERE id = ?', [req.user.id]);
+    const [users] = await connection.execute('SELECT id, name, email, mobile, investmentAmount, dailyReturnRate, btcAllocated, dailyEarnings, totalEarnings, level0_amount, level1_amount, level2_amount, level3_amount, level4_amount, level5_amount, role, chain, unlockedLevel FROM users WHERE id = ?', [req.user.id]);
     connection.release();
 
     if (users.length === 0) {
@@ -452,7 +465,7 @@ app.get('/api/user/profile', authMiddleware, async (req, res) => {
 app.get('/api/admin/users', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const connection = await pool.getConnection();
-    let query = 'SELECT id, name, email, mobile, investmentAmount, dailyReturnRate, btcAllocated, dailyEarnings, totalEarnings, role, chain, unlockedLevel, createdAt FROM users';
+    let query = 'SELECT id, name, email, mobile, investmentAmount, dailyReturnRate, btcAllocated, dailyEarnings, totalEarnings, level0_amount, level1_amount, level2_amount, level3_amount, level4_amount, level5_amount, role, chain, unlockedLevel, createdAt FROM users';
     let params = [];
 
     // If not master-admin, only show users from their chain and hide master-admins
