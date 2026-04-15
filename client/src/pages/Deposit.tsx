@@ -176,7 +176,7 @@ export default function Deposit() {
             </button>
           </div>
 
-          {/* Transaction ID Form */}
+          {/* Deposit Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="block text-slate-300 text-sm font-medium mb-3">Select Level</label>
@@ -205,6 +205,7 @@ export default function Deposit() {
                 min="0"
                 className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-yellow-500"
               />
+              <p className="text-slate-500 text-xs mt-2">Enter the amount of USDT you have sent</p>
             </div>
 
             <div>
@@ -232,7 +233,7 @@ export default function Deposit() {
 
             <button
               type="submit"
-              disabled={submitting || !isValidTransactionId(transactionId)}
+              disabled={submitting || !isValidTransactionId(transactionId) || !amount || parseFloat(amount) <= 0}
               className="w-full bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-700 text-slate-900 font-bold py-3 rounded-lg transition"
             >
               {submitting ? 'Submitting...' : 'Submit Deposit'}
@@ -245,7 +246,7 @@ export default function Deposit() {
             <ol className="text-slate-400 text-sm space-y-2">
               <li className="flex gap-3">
                 <span className="text-yellow-500 font-bold">1.</span>
-                <span>Enter the amount you have sent and select your level</span>
+                <span>Select the level you want to deposit for</span>
               </li>
               <li className="flex gap-3">
                 <span className="text-yellow-500 font-bold">2.</span>
@@ -261,7 +262,7 @@ export default function Deposit() {
               </li>
               <li className="flex gap-3">
                 <span className="text-yellow-500 font-bold">5.</span>
-                <span>Paste the transaction ID above (must be 5-30 characters, letters and numbers only)</span>
+                <span>Enter the amount and paste the transaction ID above</span>
               </li>
               <li className="flex gap-3">
                 <span className="text-yellow-500 font-bold">6.</span>
