@@ -700,7 +700,7 @@ app.get('/api/admin/deposits', authMiddleware, adminMiddleware, async (req, res)
   try {
     const connection = await pool.getConnection();
     let query = `
-      SELECT d.id, d.userId, u.name, u.email, d.amount, d.transactionId, d.level, d.status, d.createdAt
+      SELECT d.id, d.userId, u.name, u.email, d.amount, d.transactionId, d.level, d.status, d.createdAt, d.chain
       FROM deposits d
       JOIN users u ON d.userId = u.id
     `;
@@ -837,7 +837,7 @@ app.get('/api/admin/withdrawals', authMiddleware, adminMiddleware, async (req, r
   try {
     const connection = await pool.getConnection();
     let query = `
-      SELECT w.id, w.userId, u.name, u.email, w.amount, w.trc20_address, w.status, w.createdAt
+      SELECT w.id, w.userId, u.name, u.email, w.amount, w.trc20_address, w.status, w.createdAt, w.chain
       FROM withdrawals w
       JOIN users u ON w.userId = u.id
     `;
@@ -912,7 +912,7 @@ app.get('/api/admin/chat', authMiddleware, coAdminMiddleware, async (req, res) =
   try {
     const connection = await pool.getConnection();
     let query = `
-      SELECT m.id, m.userId, u.name, u.email, m.message, m.senderRole, m.createdAt
+      SELECT m.id, m.userId, u.name, u.email, m.message, m.senderRole, m.createdAt, m.chain
       FROM messages m
       JOIN users u ON m.userId = u.id
     `;
