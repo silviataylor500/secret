@@ -167,7 +167,7 @@ export default function Dashboard() {
               <div className="w-8 h-8 bg-yellow-500 rounded flex items-center justify-center">
                 <span className="text-black font-black text-sm">₿</span>
               </div>
-              <span className="text-xl font-black tracking-tighter text-white">BINANCE</span>
+              <span className="text-xl font-black tracking-tighter text-white">BINANCE <span className="text-orange-500">x</span> AMAZON</span>
               <div className="hidden md:flex items-center gap-2 ml-6 px-3 py-1 bg-[#2b2f36] rounded-full border border-[#474d57]">
                 <span className="w-2 h-2 bg-[#0ecb81] rounded-full animate-pulse"></span>
                 <span className="text-xs font-bold text-[#848e9c]">Chain {user?.chain}</span>

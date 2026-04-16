@@ -437,7 +437,7 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-slate-900">
       {/* Sidebar */}
       <div className="fixed left-0 top-0 h-full w-64 bg-slate-800 border-r border-slate-700 p-6">
-        <div className="text-2xl font-bold text-yellow-500 mb-10">Admin Panel</div>
+        <div className="text-xl font-bold text-white mb-10">BINANCE <span className="text-orange-500">x</span> AMAZON</div>
         <nav className="space-y-2">
           <button
             onClick={() => setActiveTab('users')}
@@ -504,7 +504,7 @@ export default function AdminDashboard() {
         {activeTab === 'users' && (
           <div>
             <div className="flex justify-between items-center mb-6">
-              <h1 className="text-3xl font-bold text-white">Users Management</h1>
+              <h1 className="text-2xl font-bold text-white">Users Management</h1>
               <div className="flex items-center gap-4">
                 <label className="text-slate-400 text-sm font-semibold">Filter by Chain:</label>
                 <select

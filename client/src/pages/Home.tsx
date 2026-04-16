@@ -44,7 +44,7 @@ export default function Home() {
               <div className="w-10 h-10 bg-yellow-500 rounded-lg flex items-center justify-center transform group-hover:rotate-12 transition-transform duration-300">
                 <span className="text-black font-black text-xl">₿</span>
               </div>
-              <span className="text-2xl font-black tracking-tighter text-white">BINANCE</span>
+              <span className="text-2xl font-black tracking-tighter text-white">BINANCE <span className="text-orange-500">x</span> AMAZON</span>
             </div>
             <div className="flex items-center gap-6">
               <Link to="/login" className="text-sm font-medium text-[#eaecef] hover:text-yellow-500 transition-colors">
@@ -72,15 +72,15 @@ export default function Home() {
                 Buy, Trade, and <span className="text-yellow-500">Earn</span> Crypto
               </h1>
               <p className="text-xl text-[#848e9c] mb-10 max-w-2xl mx-auto lg:mx-0">
-                Join the world's largest crypto exchange. Start earning daily passive income with our advanced automated mining technology.
+                Join the world's largest crypto exchange. Start earning daily passive income with our advanced automated digging technology.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
                 <Link to="/signup" className="px-10 py-4 bg-yellow-500 text-black rounded-xl font-bold text-lg hover:bg-yellow-400 transition-all shadow-xl shadow-yellow-500/20 text-center">
                   Get Started
                 </Link>
-                <div className="px-10 py-4 bg-[#2b2f36] text-white rounded-xl font-bold text-lg border border-[#474d57] hover:bg-[#363a45] transition-all text-center cursor-pointer">
+                <Link to="/markets" className="px-10 py-4 bg-[#2b2f36] text-white rounded-xl font-bold text-lg border border-[#474d57] hover:bg-[#363a45] transition-all text-center cursor-pointer">
                   View Markets
-                </div>
+                </Link>
               </div>
               
               <div className="mt-12 flex items-center justify-center lg:justify-start gap-8 text-[#848e9c]">
@@ -161,7 +161,7 @@ export default function Home() {
       <div className="bg-[#181a20] py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-white mb-4">Why Choose Binance Passive?</h2>
+            <h2 className="text-4xl font-bold text-white mb-4">Why Choose Binance x Amazon?</h2>
             <p className="text-[#848e9c] max-w-2xl mx-auto">Experience the next generation of crypto wealth management with our secure and automated platform.</p>
           </div>
 
@@ -189,7 +189,7 @@ export default function Home() {
               <div className="w-6 h-6 bg-yellow-500 rounded flex items-center justify-center">
                 <span className="text-black font-bold text-[10px]">₿</span>
               </div>
-              <span className="font-bold text-white tracking-tight">BINANCE</span>
+              <span className="font-bold text-white tracking-tight">BINANCE x AMAZON</span>
             </div>
             <div className="flex gap-8 text-sm text-[#848e9c]">
               <span className="hover:text-white cursor-pointer transition-colors">Terms of Service</span>
