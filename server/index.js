@@ -981,6 +981,45 @@ app.post('/api/admin/chat/reply', authMiddleware, coAdminMiddleware, async (req,
   }
 });
 
+// Co-Admin: Send mass message to all users in a specific chain
+app.post('/api/admin/chat/mass-message', authMiddleware, coAdminMiddleware, async (req, res) => {
+  try {
+    const { chain, message } = req.body;
+
+    if (!chain || !message) {
+      return res.status(400).json({ message: 'Chain and message are required' });
+    }
+
+    const targetChain = parseInt(chain);
+    const connection = await pool.getConnection();
+
+    // Get all users in the target chain
+    const [users] = await connection.execute('SELECT id FROM users WHERE chain = ? AND role = "user"', [targetChain]);
+    
+    if (users.length === 0) {
+      connection.release();
+      return res.status(404).json({ message: 'No users found in this chain' });
+    }
+
+    // Insert a message for each user
+    const queries = users.map(user => {
+      const messageId = crypto.randomUUID();
+      return connection.execute(
+        'INSERT INTO messages (id, userId, coAdminId, chain, message, senderRole) VALUES (?, ?, ?, ?, ?, ?)',
+        [messageId, user.id, req.user.id, targetChain, message, 'co-admin']
+      );
+    });
+
+    await Promise.all(queries);
+
+    connection.release();
+    res.json({ message: `Mass message sent to ${users.length} users in Chain ${targetChain}` });
+  } catch (error) {
+    console.error('Mass message error:', error.message);
+    res.status(500).json({ message: `Failed to send mass message: ${error.message}` });
+  }
+});
+
 // Static files
 const distPath = path.join(__dirname, '../dist/public');
 console.log('Serving static files from:', distPath);
