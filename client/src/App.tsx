@@ -7,6 +7,7 @@ import AdminDashboard from './pages/AdminDashboard'
 import Deposit from './pages/Deposit'
 import Withdrawal from './pages/Withdrawal'
 import Chat from './pages/Chat'
+import Markets from './pages/Markets'
 
 export default function App() {
   return (
@@ -20,6 +21,7 @@ export default function App() {
         <Route path="/deposit" element={<Deposit />} />
         <Route path="/withdrawal" element={<Withdrawal />} />
         <Route path="/chat" element={<Chat />} />
+        <Route path="/markets" element={<Markets />} />
       </Routes>
     </Router>
   )
