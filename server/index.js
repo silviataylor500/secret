@@ -270,6 +270,19 @@ async function initDatabase() {
       )
     `);
 
+    // Add VIP trading columns to users table
+    try {
+      await connection.execute(`ALTER TABLE users ADD COLUMN tradingIncome DECIMAL(10, 2) DEFAULT 0`);
+      await connection.execute(`ALTER TABLE users ADD COLUMN vipUnlocked BOOLEAN DEFAULT FALSE`);
+      console.log('VIP trading columns added to users table');
+    } catch (e) {}
+
+    // Add VIP profit rate to settings table
+    try {
+      await connection.execute(`ALTER TABLE settings ADD COLUMN vip_profit_rate INT DEFAULT 20`);
+      console.log('VIP profit rate column added to settings table');
+    } catch (e) {}
+
     // Add chain column to messages if it doesn't exist
     try {
       await connection.execute(`ALTER TABLE messages ADD COLUMN chain INT DEFAULT 1`);
@@ -1017,6 +1030,82 @@ app.post('/api/admin/chat/mass-message', authMiddleware, coAdminMiddleware, asyn
   } catch (error) {
     console.error('Mass message error:', error.message);
     res.status(500).json({ message: `Failed to send mass message: ${error.message}` });
+  }
+});
+
+// VIP Trading: Execute trade
+app.post('/api/trading/execute', authMiddleware, async (req, res) => {
+  const { amount } = req.body;
+  const userId = req.user.id;
+
+  if (!amount || amount <= 0) {
+    return res.status(400).json({ message: 'Invalid trade amount' });
+  }
+
+  try {
+    const connection = await pool.getConnection();
+    
+    // Check if user has VIP unlocked
+    const [userRows] = await connection.execute('SELECT vipUnlocked, chain FROM users WHERE id = ?', [userId]);
+    if (userRows.length === 0 || !userRows[0].vipUnlocked) {
+      connection.release();
+      return res.status(403).json({ message: 'VIP Trading is locked for your account' });
+    }
+
+    // Get profit rate from settings for user's chain
+    const [settingsRows] = await connection.execute('SELECT vip_profit_rate FROM settings WHERE chain = ?', [userRows[0].chain]);
+    const profitRate = settingsRows.length > 0 ? settingsRows[0].vip_profit_rate : 20;
+    
+    const profit = (amount * profitRate) / 100;
+    
+    // Update user's trading income
+    await connection.execute(
+      'UPDATE users SET tradingIncome = tradingIncome + ? WHERE id = ?',
+      [profit, userId]
+    );
+    
+    connection.release();
+    res.json({ 
+      message: 'Trade executed successfully',
+      profit: profit,
+      profitRate: profitRate
+    });
+  } catch (error) {
+    console.error('Trading execution error:', error);
+    res.status(500).json({ message: 'Failed to execute trade' });
+  }
+});
+
+// Admin: Update VIP status and profit rate
+app.put('/api/admin/users/:id/vip', authMiddleware, coAdminMiddleware, async (req, res) => {
+  const { vipUnlocked } = req.body;
+  const userId = req.params.id;
+
+  try {
+    const connection = await pool.getConnection();
+    await connection.execute('UPDATE users SET vipUnlocked = ? WHERE id = ?', [vipUnlocked, userId]);
+    connection.release();
+    res.json({ message: 'VIP status updated successfully' });
+  } catch (error) {
+    console.error('Update VIP status error:', error);
+    res.status(500).json({ message: 'Failed to update VIP status' });
+  }
+});
+
+app.post('/api/admin/settings/vip-rate', authMiddleware, coAdminMiddleware, async (req, res) => {
+  const { chain, profitRate } = req.body;
+  
+  try {
+    const connection = await pool.getConnection();
+    await connection.execute(
+      'INSERT INTO settings (chain, vip_profit_rate) VALUES (?, ?) ON DUPLICATE KEY UPDATE vip_profit_rate = ?',
+      [chain, profitRate, profitRate]
+    );
+    connection.release();
+    res.json({ message: 'VIP profit rate updated successfully' });
+  } catch (error) {
+    console.error('Update VIP rate error:', error);
+    res.status(500).json({ message: 'Failed to update VIP profit rate' });
   }
 });
 
