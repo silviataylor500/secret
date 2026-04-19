@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import Logo from '../components/Logo'
@@ -40,8 +40,10 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [btcPrice, setBtcPrice] = useState(0)
+  const isMounted = useRef(true)
 
   useEffect(() => {
+    isMounted.current = true
     const token = localStorage.getItem('token')
     if (!token) {
       navigate('/login')
@@ -53,25 +55,39 @@ export default function Dashboard() {
         const profileRes = await axios.get('/api/user/profile', {
           headers: { Authorization: `Bearer ${token}` },
         })
+        
+        if (!isMounted.current) return
         setUser(profileRes.data)
 
-        const settingsRes = await axios.get('/api/settings/all', {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        setSettings(settingsRes.data)
+        try {
+          const settingsRes = await axios.get('/api/settings/all', {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+          if (isMounted.current) setSettings(settingsRes.data)
+        } catch (settingsErr) {
+          console.error('Settings fetch error:', settingsErr)
+        }
 
-        const btcRes = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd')
-        setBtcPrice(btcRes.data.bitcoin.usd)
+        try {
+          const btcRes = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd')
+          if (isMounted.current) setBtcPrice(btcRes.data.bitcoin.usd)
+        } catch (btcErr) {
+          console.error('BTC Price fetch error:', btcErr)
+          if (isMounted.current) setBtcPrice(75000)
+        }
 
-        setLoading(false)
+        if (isMounted.current) setLoading(false)
       } catch (err: any) {
         console.error('Data fetch error:', err)
-        setError(err.response?.data?.message || 'Failed to fetch dashboard data')
-        setLoading(false)
+        if (isMounted.current) {
+          setError(err.response?.data?.message || 'Failed to fetch dashboard data. Please check your connection.')
+          setLoading(false)
+        }
       }
     }
 
     fetchData()
+    return () => { isMounted.current = false }
   }, [navigate])
 
   const handleLogout = () => {
@@ -96,11 +112,11 @@ export default function Dashboard() {
       <div className="min-h-screen bg-[#0b0e11] flex items-center justify-center p-4">
         <div className="bg-[#1e2329] border border-[#f6465d]/30 p-8 rounded-2xl text-center max-w-md w-full">
           <div className="text-5xl mb-4">⚠️</div>
-          <h2 className="text-2xl font-bold text-white mb-2">Fetch Error</h2>
+          <h2 className="text-2xl font-bold text-white mb-2">Connection Error</h2>
           <p className="text-[#848e9c] mb-6">{error}</p>
           <button 
             onClick={() => window.location.reload()}
-            className="w-full py-3 bg-[#2b2f36] hover:bg-[#363a45] text-white rounded-xl font-bold transition-colors"
+            className="w-full py-3 bg-yellow-500 hover:bg-yellow-400 text-black rounded-xl font-bold transition-colors"
           >
             Retry Connection
           </button>

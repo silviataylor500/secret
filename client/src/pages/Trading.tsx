@@ -15,8 +15,10 @@ export default function Trading() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const priceInterval = useRef<any>(null)
+  const isMounted = useRef(true)
 
   useEffect(() => {
+    isMounted.current = true
     const token = localStorage.getItem('token')
     if (!token) {
       navigate('/login')
@@ -29,6 +31,8 @@ export default function Trading() {
           headers: { Authorization: `Bearer ${token}` },
         })
         
+        if (!isMounted.current) return
+
         if (!profileRes.data.vipUnlocked) {
           navigate('/dashboard')
           return
@@ -36,17 +40,31 @@ export default function Trading() {
         
         setUser(profileRes.data)
         
-        // Fetch BTC price
-        const btcRes = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd')
-        const initialPrice = btcRes.data.bitcoin.usd
-        setBtcPrice(initialPrice)
-        setDisplayPrice(initialPrice)
-        setStrikePrice(initialPrice)
-        setLoading(false)
+        // Fetch BTC price with fallback
+        try {
+          const btcRes = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd')
+          const initialPrice = btcRes.data.bitcoin.usd
+          if (isMounted.current) {
+            setBtcPrice(initialPrice)
+            setDisplayPrice(initialPrice)
+            setStrikePrice(initialPrice)
+          }
+        } catch (btcErr) {
+          console.error('BTC Price fetch error:', btcErr)
+          if (isMounted.current) {
+            setBtcPrice(75000) // Fallback price
+            setDisplayPrice(75000)
+            setStrikePrice(75000)
+          }
+        }
+        
+        if (isMounted.current) setLoading(false)
       } catch (err: any) {
         console.error('Error fetching data:', err)
-        setError('Failed to load trading data')
-        setLoading(false)
+        if (isMounted.current) {
+          setError('Failed to load trading data. Please try again.')
+          setLoading(false)
+        }
       }
     }
 
@@ -54,13 +72,18 @@ export default function Trading() {
 
     // Price fluctuation animation
     priceInterval.current = setInterval(() => {
-      setDisplayPrice(prev => {
-        const fluctuation = (Math.random() - 0.5) * 20
-        return Math.max(prev + fluctuation, 1000)
-      })
+      if (isMounted.current) {
+        setDisplayPrice(prev => {
+          const fluctuation = (Math.random() - 0.5) * 20
+          return Math.max(prev + fluctuation, 1000)
+        })
+      }
     }, 500)
 
-    return () => clearInterval(priceInterval.current)
+    return () => {
+      isMounted.current = false
+      if (priceInterval.current) clearInterval(priceInterval.current)
+    }
   }, [navigate])
 
   const handleTrade = async (type: 'buy' | 'sell') => {
@@ -94,12 +117,16 @@ export default function Trading() {
       }, {
         headers: { Authorization: `Bearer ${token}` },
       })
-      setTradeResult({ profit: res.data.profit, rate: res.data.profitRate })
-      setIsTrading(false)
-      setAmount('')
+      if (isMounted.current) {
+        setTradeResult({ profit: res.data.profit, rate: res.data.profitRate })
+        setIsTrading(false)
+        setAmount('')
+      }
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Trade execution failed')
-      setIsTrading(false)
+      if (isMounted.current) {
+        alert(err.response?.data?.message || 'Trade execution failed')
+        setIsTrading(false)
+      }
     }
   }
 
@@ -119,6 +146,24 @@ export default function Trading() {
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-orange-500/30 border-t-orange-500 rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-[#848e9c] font-semibold">Loading VIP Trading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#0b0e11] flex items-center justify-center p-4">
+        <div className="bg-[#1e2329] border border-[#f6465d]/30 p-8 rounded-2xl text-center max-w-md w-full">
+          <div className="text-5xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-bold text-white mb-2">Connection Error</h2>
+          <p className="text-[#848e9c] mb-6">{error}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="w-full py-3 bg-orange-500 hover:bg-orange-400 text-white rounded-xl font-bold transition-all"
+          >
+            Retry Connection
+          </button>
         </div>
       </div>
     )
