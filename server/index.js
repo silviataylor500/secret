@@ -274,17 +274,23 @@ async function initDatabase() {
     try {
       await connection.execute(`ALTER TABLE users ADD COLUMN tradingIncome DECIMAL(10, 2) DEFAULT 0`);
       console.log('tradingIncome column added to users table');
-    } catch (e) {}
+    } catch (e) {
+      console.log('tradingIncome column already exists or error:', e.message);
+    }
     try {
-      await connection.execute(`ALTER TABLE users ADD COLUMN vipUnlocked BOOLEAN DEFAULT FALSE`);
+      await connection.execute(`ALTER TABLE users ADD COLUMN vipUnlocked TINYINT(1) DEFAULT 0`);
       console.log('vipUnlocked column added to users table');
-    } catch (e) {}
+    } catch (e) {
+      console.log('vipUnlocked column already exists or error:', e.message);
+    }
 
     // Add VIP profit rate to settings table
     try {
       await connection.execute(`ALTER TABLE settings ADD COLUMN vip_profit_rate INT DEFAULT 20`);
       console.log('VIP profit rate column added to settings table');
-    } catch (e) {}
+    } catch (e) {
+      console.log('vip_profit_rate column already exists or error:', e.message);
+    }
 
     // Add chain column to messages if it doesn't exist
     try {
@@ -465,7 +471,16 @@ app.post('/api/auth/login', async (req, res) => {
 app.get('/api/user/profile', authMiddleware, async (req, res) => {
   try {
     const connection = await pool.getConnection();
-    const [users] = await connection.execute('SELECT id, name, email, mobile, investmentAmount, dailyReturnRate, btcAllocated, dailyEarnings, totalEarnings, level0_amount, level1_amount, level2_amount, level3_amount, level4_amount, level5_amount, role, chain, unlockedLevel, tradingIncome, vipUnlocked FROM users WHERE id = ?', [req.user.id]);
+    // Use a more robust query that handles potential missing columns by providing defaults
+    const [users] = await connection.execute(`
+      SELECT 
+        id, name, email, mobile, investmentAmount, dailyReturnRate, btcAllocated, 
+        dailyEarnings, totalEarnings, level0_amount, level1_amount, level2_amount, 
+        level3_amount, level4_amount, level5_amount, role, chain, unlockedLevel,
+        COALESCE(tradingIncome, 0) as tradingIncome,
+        COALESCE(vipUnlocked, 0) as vipUnlocked
+      FROM users WHERE id = ?
+    `, [req.user.id]);
     connection.release();
 
     if (users.length === 0) {
@@ -475,7 +490,7 @@ app.get('/api/user/profile', authMiddleware, async (req, res) => {
     res.json(users[0]);
   } catch (error) {
     console.error('Profile fetch error:', error);
-    res.status(500).json({ message: 'Failed to fetch user profile' });
+    res.status(500).json({ message: `Failed to fetch user profile: ${error.message}` });
   }
 });
 
@@ -483,7 +498,16 @@ app.get('/api/user/profile', authMiddleware, async (req, res) => {
 app.get('/api/admin/users', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const connection = await pool.getConnection();
-    let query = 'SELECT id, name, email, mobile, investmentAmount, dailyReturnRate, btcAllocated, dailyEarnings, totalEarnings, level0_amount, level1_amount, level2_amount, level3_amount, level4_amount, level5_amount, role, chain, unlockedLevel, tradingIncome, vipUnlocked, createdAt FROM users';
+    let query = `
+      SELECT 
+        id, name, email, mobile, investmentAmount, dailyReturnRate, btcAllocated, 
+        dailyEarnings, totalEarnings, level0_amount, level1_amount, level2_amount, 
+        level3_amount, level4_amount, level5_amount, role, chain, unlockedLevel, 
+        COALESCE(tradingIncome, 0) as tradingIncome, 
+        COALESCE(vipUnlocked, 0) as vipUnlocked, 
+        createdAt 
+      FROM users
+    `;
     let params = [];
 
     // If not master-admin, only show users from their chain and hide master-admins
