@@ -139,16 +139,43 @@ export default function Dashboard() {
   const safeFormatUSD = (val: any) => formatUSD(val);
   const safeFormatBTC = (val: any) => formatBTC(val);
 
+  const formatPercent = (val: any) => {
+    const num = parseFloat(val)
+    return isNaN(num) ? '0.000' : num.toFixed(3)
+  }
+
   const isLevelUnlocked = (level: number) => {
     return user && user.unlockedLevel >= level
   }
 
   const levels = [
-    { name: 'Level 1', level: 1, rate: settings?.level1_rate || 0.05, icon: '💚', color: 'from-green-500/20 to-green-600/5', border: 'border-green-500/30', roi: '120%' },
-    { name: 'Level 2', level: 2, rate: settings?.level2_rate || 0.10, icon: '🤍', color: 'from-slate-500/20 to-slate-600/5', border: 'border-slate-500/30', roi: '150%' },
-    { name: 'Level 3', level: 3, rate: settings?.level3_rate || 0.15, icon: '👑', color: 'from-yellow-500/20 to-yellow-600/5', border: 'border-yellow-500/30', roi: '180%' },
-    { name: 'Level 4', level: 4, rate: settings?.level4_rate || 0.20, icon: '🔴', color: 'from-red-500/20 to-red-600/5', border: 'border-red-500/30', roi: '200%' },
+    { name: 'Level 1', level: 1, rate: settings?.level1_rate || 0.05, icon: '💚', color: 'from-green-500/20 to-green-600/5', border: 'border-green-500/30' },
+    { name: 'Level 2', level: 2, rate: settings?.level2_rate || 0.10, icon: '🤍', color: 'from-slate-500/20 to-slate-600/5', border: 'border-slate-500/30' },
+    { name: 'Level 3', level: 3, rate: settings?.level3_rate || 0.15, icon: '👑', color: 'from-yellow-500/20 to-yellow-600/5', border: 'border-yellow-500/30' },
+    { name: 'Level 4', level: 4, rate: settings?.level4_rate || 0.20, icon: '🔴', color: 'from-red-500/20 to-red-600/5', border: 'border-red-500/30' },
+    { name: 'Level 5', level: 5, rate: settings?.level5_rate || 0.25, icon: '💎', color: 'from-blue-500/20 to-blue-600/5', border: 'border-blue-500/30' },
   ]
+
+  const calculateAverageReturnRate = () => {
+    if (!user) return 0;
+    const unlockedLevels = levels.filter(l => l.level <= user.unlockedLevel);
+    if (unlockedLevels.length === 0) return 0;
+    const sum = unlockedLevels.reduce((acc, curr) => acc + curr.rate, 0);
+    return sum / unlockedLevels.length;
+  }
+
+  const calculateTotalDailyEarnings = () => {
+    if (!user) return 0;
+    let total = 0;
+    levels.forEach(l => {
+      const amount = parseFloat((user as any)[`level${l.level}_amount` as keyof UserProfile] || 0);
+      total += (amount * l.rate) / 100;
+    });
+    return total;
+  }
+
+  const dynamicReturnRate = calculateAverageReturnRate();
+  const totalDailyEarnings = calculateTotalDailyEarnings();
 
   return (
     <div className="min-h-screen bg-[#0b0e11] text-[#eaecef] font-sans">
@@ -158,6 +185,10 @@ export default function Dashboard() {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-3">
               <Logo size="md" />
+              <div className="hidden md:flex items-center gap-2 ml-6 px-3 py-1 bg-[#2b2f36] rounded-full border border-[#474d57]">
+                <span className="w-2 h-2 bg-[#0ecb81] rounded-full animate-pulse"></span>
+                <span className="text-xs font-bold text-[#848e9c]">Chain {user?.chain}</span>
+              </div>
             </div>
             
             <div className="flex items-center gap-3">
@@ -169,7 +200,7 @@ export default function Dashboard() {
               {(user?.role === 'admin' || user?.role === 'co-admin' || user?.role === 'master-admin') && (
                 <button
                   onClick={() => navigate('/admin')}
-                  className="px-4 py-2 bg-orange-500 hover:bg-orange-400 text-white rounded-lg font-bold text-xs transition-all"
+                  className="px-4 py-2 bg-orange-500 hover:bg-orange-400 text-white rounded-lg font-bold text-xs transition-all shadow-lg shadow-orange-500/10"
                 >
                   Admin
                 </button>
@@ -201,71 +232,115 @@ export default function Dashboard() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header Section */}
-        <div className="mb-10">
-          <h1 className="text-3xl font-black text-white mb-1">Portfolio Overview</h1>
-          <p className="text-[#848e9c] text-sm">Welcome back, <span className="text-orange-500 font-bold">{user?.name}</span></p>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
+          <div>
+            <h1 className="text-4xl font-black text-white mb-2">Portfolio Overview</h1>
+            <p className="text-[#848e9c] text-sm">Welcome back, <span className="text-orange-500 font-bold">{user?.name}</span>. Your assets are SAFU.</p>
+          </div>
+          <div className="flex gap-3 w-full md:w-auto">
+            <button
+              onClick={() => navigate('/deposit')}
+              className="flex-1 md:flex-none px-8 py-3 bg-[#0ecb81] hover:bg-[#0ba368] text-white rounded-xl font-bold text-sm transition-all shadow-lg shadow-[#0ecb81]/10"
+            >
+              Deposit
+            </button>
+            <button
+              onClick={() => navigate('/withdrawal')}
+              className="flex-1 md:flex-none px-8 py-3 bg-[#2b2f36] hover:bg-[#363a45] text-white rounded-xl font-bold text-sm border border-[#474d57] transition-all"
+            >
+              Withdraw
+            </button>
+            <button
+              onClick={() => navigate('/chat')}
+              className="p-3 bg-[#2b2f36] hover:bg-[#363a45] text-white rounded-xl border border-[#474d57] transition-all"
+              title="Support Chat"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-          <div className="bg-[#1e2329] border border-[#2b2f36] p-6 rounded-3xl">
+          <div className="bg-[#1e2329] border border-[#2b2f36] p-6 rounded-3xl relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
             <p className="text-xs font-bold text-[#848e9c] uppercase tracking-widest mb-2">Total Investment</p>
-            <p className="text-4xl font-black text-white">${safeFormatUSD(user?.investmentAmount)}</p>
+            <p className="text-3xl font-black text-white">${safeFormatUSD(user?.investmentAmount)}</p>
+            <div className="mt-4 flex items-center gap-2">
+              <span className="text-[10px] font-bold px-2 py-0.5 bg-orange-500/10 text-orange-500 rounded uppercase">Active</span>
+            </div>
           </div>
 
-          <div className="bg-[#1e2329] border border-[#2b2f36] p-6 rounded-3xl">
+          <div className="bg-[#1e2329] border border-[#2b2f36] p-6 rounded-3xl relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+            </div>
             <p className="text-xs font-bold text-[#848e9c] uppercase tracking-widest mb-2">Trading Income</p>
-            <p className="text-4xl font-black text-orange-500">${safeFormatUSD(user?.tradingIncome)}</p>
+            <p className="text-3xl font-black text-[#0ecb81]">${safeFormatUSD(user?.tradingIncome)}</p>
+            <div className="mt-4 flex items-center gap-2">
+              <span className="text-[10px] font-bold px-2 py-0.5 bg-[#0ecb81]/10 text-[#0ecb81] rounded uppercase">VIP</span>
+            </div>
           </div>
 
-          <div className="bg-[#1e2329] border border-[#2b2f36] p-6 rounded-3xl">
+          <div className="bg-[#1e2329] border border-[#2b2f36] p-6 rounded-3xl relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
             <p className="text-xs font-bold text-[#848e9c] uppercase tracking-widest mb-2">Daily Earnings</p>
-            <p className="text-4xl font-black text-[#0ecb81]">${safeFormatUSD(user?.dailyEarnings)}</p>
+            <p className="text-3xl font-black text-yellow-500">${safeFormatUSD(totalDailyEarnings)}</p>
+            <div className="mt-4 flex items-center gap-2">
+              <span className="text-[10px] font-bold px-2 py-0.5 bg-yellow-500/10 text-yellow-500 rounded uppercase">24h Est.</span>
+            </div>
           </div>
         </div>
 
         {/* BTC Chart Section */}
         <div className="bg-[#1e2329] border border-[#2b2f36] rounded-3xl p-8 mb-10">
-          <div className="flex justify-between items-start mb-8">
+          <div className="flex justify-between items-center mb-8">
             <div>
               <p className="text-xs font-bold text-[#848e9c] uppercase tracking-widest mb-2">BTC / USD</p>
-              <h2 className="text-5xl font-black text-white">${btcPrice.toLocaleString()}</h2>
-              <p className="text-sm text-[#0ecb81] font-bold mt-2">+1.58% $750.24</p>
+              <h2 className="text-4xl font-black text-white">${btcPrice.toLocaleString()}</h2>
+            </div>
+            <div className="text-right">
+              <p className="text-xs font-bold text-[#848e9c] uppercase mb-2">24h High</p>
+              <p className="text-2xl font-black text-[#0ecb81]">$48,950.75</p>
             </div>
           </div>
 
-          {/* Candlestick Chart Visualization */}
-          <div className="h-48 flex items-end gap-1 mb-8 px-4">
-            {[...Array(50)].map((_, i) => {
-              const isGreen = Math.random() > 0.4;
-              const height = Math.random() * 100;
-              return (
-                <div key={i} className="flex-1 flex flex-col items-center justify-end gap-0.5">
-                  {/* High-Low Line */}
-                  <div className="w-0.5 bg-[#2b2f36] opacity-50" style={{ height: `${height * 0.3}px` }}></div>
-                  {/* Candle Body */}
-                  <div 
-                    className={`w-full rounded-sm ${isGreen ? 'bg-[#0ecb81]' : 'bg-[#f6465d]'}`}
-                    style={{ height: `${height * 0.7}px` }}
-                  ></div>
-                </div>
-              )
-            })}
+          {/* Chart Visualization */}
+          <div className="h-40 flex items-end gap-1 mb-8">
+            {[...Array(50)].map((_, i) => (
+              <div 
+                key={i} 
+                className="flex-1 bg-gradient-to-t from-orange-500 to-orange-400 rounded-t-sm opacity-60 hover:opacity-100 transition-opacity"
+                style={{ height: `${Math.random() * 100}%` }}
+              ></div>
+            ))}
           </div>
 
           {/* Chart Info */}
           <div className="grid grid-cols-4 gap-4">
             <div className="bg-[#0b0e11] rounded-xl p-4 border border-[#2b2f36]">
               <p className="text-xs font-bold text-[#848e9c] uppercase mb-1">1H</p>
-              <p className="text-lg font-black text-white">-</p>
+              <p className="text-lg font-black text-white">+2.5%</p>
             </div>
             <div className="bg-[#0b0e11] rounded-xl p-4 border border-[#2b2f36]">
               <p className="text-xs font-bold text-[#848e9c] uppercase mb-1">24h High</p>
-              <p className="text-lg font-black text-[#0ecb81]">48,950.75</p>
+              <p className="text-lg font-black text-[#0ecb81]">$48,950.75</p>
             </div>
             <div className="bg-[#0b0e11] rounded-xl p-4 border border-[#2b2f36]">
               <p className="text-xs font-bold text-[#848e9c] uppercase mb-1">24h Low</p>
-              <p className="text-lg font-black text-[#f6465d]">47,300.12</p>
+              <p className="text-lg font-black text-[#f6465d]">$47,300.12</p>
             </div>
             <div className="bg-[#0b0e11] rounded-xl p-4 border border-[#2b2f36]">
               <p className="text-xs font-bold text-[#848e9c] uppercase mb-1">Volume</p>
@@ -276,9 +351,18 @@ export default function Dashboard() {
 
         {/* Mining Levels */}
         <div className="mb-10">
-          <h2 className="text-2xl font-black text-white mb-6">Mining Levels</h2>
+          <div className="flex justify-between items-end mb-6">
+            <div>
+              <h2 className="text-2xl font-black text-white mb-1">Mining Levels</h2>
+              <p className="text-[#848e9c] text-sm">Upgrade your level to increase your daily return rate.</p>
+            </div>
+            <div className="hidden sm:block text-right">
+              <p className="text-[10px] text-[#848e9c] uppercase tracking-widest font-bold mb-1">Avg. Return Rate</p>
+              <p className="text-xl font-black text-[#0ecb81]">{formatPercent(dynamicReturnRate)}%</p>
+            </div>
+          </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {levels.map((l) => (
               <div 
                 key={l.level}
@@ -286,18 +370,20 @@ export default function Dashboard() {
               >
                 {!isLevelUnlocked(l.level) && (
                   <div className="absolute inset-0 bg-[#0b0e11]/60 backdrop-blur-[2px] flex items-center justify-center z-10">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-[#848e9c]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
+                    <div className="bg-[#1e2329] p-2 rounded-full border border-[#2b2f36] shadow-xl">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[#848e9c]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                    </div>
                   </div>
                 )}
                 <div className="relative z-0">
                   <div className="flex justify-between items-start mb-4">
-                    <span className="text-3xl">{l.icon}</span>
+                    <span className="text-2xl">{l.icon}</span>
                     <span className="text-xs font-bold text-white/60">{l.rate}%</span>
                   </div>
-                  <p className="text-sm font-bold text-white mb-1">{l.name}</p>
-                  <p className="text-xs text-[#848e9c] mb-3">ROI: {l.roi}</p>
+                  <p className="text-xs text-[#848e9c] mb-1">Level {l.level}</p>
+                  <p className="text-lg font-black text-white mb-3">{l.name}</p>
                   <p className="text-xs text-[#848e9c] mb-1">Balance</p>
                   <p className="text-xl font-black text-white">${safeFormatUSD((user as any)[`level${l.level}_amount` as keyof UserProfile] || 0)}</p>
                 </div>
@@ -306,26 +392,38 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex gap-4 mb-10">
-          <button
-            onClick={() => navigate('/deposit')}
-            className="flex-1 px-8 py-4 bg-[#0ecb81] hover:bg-[#0ba368] text-white rounded-xl font-bold transition-all"
-          >
-            Deposit
-          </button>
-          <button
-            onClick={() => navigate('/withdrawal')}
-            className="flex-1 px-8 py-4 bg-[#2b2f36] hover:bg-[#363a45] text-white rounded-xl font-bold border border-[#474d57] transition-all"
-          >
-            Withdraw
-          </button>
-          <button
-            onClick={() => navigate('/chat')}
-            className="flex-1 px-8 py-4 bg-[#2b2f36] hover:bg-[#363a45] text-white rounded-xl font-bold border border-[#474d57] transition-all"
-          >
-            Support
-          </button>
+        {/* VIP Trading Banner */}
+        <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-3xl p-8 relative overflow-hidden group cursor-pointer" onClick={() => navigate('/trading')}>
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl group-hover:bg-white/20 transition-all"></div>
+          <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-6">
+            <div className="text-center md:text-left">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-black/20 rounded-full mb-4">
+                <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
+                <span className="text-[10px] font-bold text-white uppercase tracking-widest">VIP Exclusive</span>
+              </div>
+              <h2 className="text-3xl font-black text-white mb-2 uppercase tracking-tighter">Advanced VIP Trading</h2>
+              <p className="text-white/80 max-w-xl">Execute high-frequency trades with our automated system and earn up to 80% profit per trade. VIP access required.</p>
+            </div>
+            <div className="flex flex-col items-center gap-3">
+              <button className="px-10 py-4 bg-white text-orange-600 rounded-xl font-black text-lg hover:bg-orange-50 transition-all shadow-xl shadow-black/10">
+                {user?.vipUnlocked ? 'ENTER TRADING' : 'UNLOCK VIP'}
+              </button>
+              <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest">Powered by Digging Pool AI</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="mt-20 pt-10 border-t border-[#2b2f36] flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="flex items-center gap-3">
+            <Logo size="sm" />
+            <span className="text-xs text-[#474d57]">© 2026 Digging Pool. All rights reserved.</span>
+          </div>
+          <div className="flex gap-6">
+            <span className="text-xs text-[#848e9c] hover:text-white cursor-pointer transition-colors">Support</span>
+            <span className="text-xs text-[#848e9c] hover:text-white cursor-pointer transition-colors">Security</span>
+            <span className="text-xs text-[#848e9c] hover:text-white cursor-pointer transition-colors">Privacy</span>
+          </div>
         </div>
       </div>
     </div>
