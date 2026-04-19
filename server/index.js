@@ -1159,16 +1159,24 @@ app.post('/api/admin/settings/vip-rate', authMiddleware, adminMiddleware, async 
 
 // Static files
 // Define the path to the frontend build
-const distPath = path.resolve(__dirname, '../dist/public');
+const possiblePaths = [
+  path.resolve(__dirname, '../dist/public'),
+  path.resolve(process.cwd(), 'dist/public'),
+  path.resolve(process.cwd(), 'client/dist/public'),
+  '/app/dist/public'
+];
 
-console.log('Serving static files from:', distPath);
-console.log('Static files directory exists:', fs.existsSync(distPath));
-
-if (fs.existsSync(distPath)) {
-  app.use(express.static(distPath));
-} else {
-  console.error('CRITICAL ERROR: Build directory not found at', distPath);
+let distPath = possiblePaths[0];
+for (const p of possiblePaths) {
+  console.log(`Checking static path: ${p} - Exists: ${fs.existsSync(p)}`);
+  if (fs.existsSync(p)) {
+    distPath = p;
+    break;
+  }
 }
+
+console.log('Final static files path:', distPath);
+app.use(express.static(distPath));
 
 // SPA fallback - only for non-API routes
 app.get('*', (req, res) => {
