@@ -1,7 +1,28 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import { Line } from 'react-chartjs-2'
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js'
 import Logo from '../components/Logo'
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend
+)
 
 interface UserProfile {
   id: string
@@ -174,6 +195,93 @@ export default function Dashboard() {
     return total;
   }
 
+  // Generate BTC price chart data
+  const generateChartData = () => {
+    const labels = ['1H', '4H', '1D', '1W', '1M'];
+    const basePrice = btcPrice;
+    const priceData = [
+      basePrice * 0.98,
+      basePrice * 0.99,
+      basePrice * 1.01,
+      basePrice * 1.02,
+      basePrice * 1.015,
+    ];
+
+    return {
+      labels,
+      datasets: [
+        {
+          label: 'BTC Price (USD)',
+          data: priceData,
+          borderColor: '#f97316',
+          backgroundColor: 'rgba(249, 115, 22, 0.1)',
+          borderWidth: 3,
+          fill: true,
+          tension: 0.4,
+          pointRadius: 6,
+          pointBackgroundColor: '#f97316',
+          pointBorderColor: '#fff',
+          pointBorderWidth: 2,
+          pointHoverRadius: 8,
+        },
+      ],
+    }
+  }
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: true,
+    plugins: {
+      legend: {
+        display: false,
+      },
+      tooltip: {
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        titleColor: '#fff',
+        bodyColor: '#fff',
+        borderColor: '#f97316',
+        borderWidth: 1,
+        padding: 12,
+        displayColors: false,
+        callbacks: {
+          label: function(context: any) {
+            return '$' + context.parsed.y.toLocaleString('en-US', { maximumFractionDigits: 2 });
+          }
+        }
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: false,
+        grid: {
+          color: 'rgba(255, 255, 255, 0.05)',
+          drawBorder: false,
+        },
+        ticks: {
+          color: '#848e9c',
+          font: {
+            size: 12,
+          },
+          callback: function(value: any) {
+            return '$' + (value / 1000).toFixed(0) + 'k';
+          }
+        }
+      },
+      x: {
+        grid: {
+          display: false,
+          drawBorder: false,
+        },
+        ticks: {
+          color: '#848e9c',
+          font: {
+            size: 12,
+          }
+        }
+      }
+    }
+  }
+
   const dynamicReturnRate = calculateAverageReturnRate();
   const totalDailyEarnings = calculateTotalDailyEarnings();
 
@@ -313,19 +421,13 @@ export default function Dashboard() {
             </div>
             <div className="text-right">
               <p className="text-xs font-bold text-[#848e9c] uppercase mb-2">24h High</p>
-              <p className="text-2xl font-black text-[#0ecb81]">$48,950.75</p>
+              <p className="text-2xl font-black text-[#0ecb81]">${(btcPrice * 1.02).toLocaleString('en-US', { maximumFractionDigits: 2 })}</p>
             </div>
           </div>
 
           {/* Chart Visualization */}
-          <div className="h-40 flex items-end gap-1 mb-8">
-            {[...Array(50)].map((_, i) => (
-              <div 
-                key={i} 
-                className="flex-1 bg-gradient-to-t from-orange-500 to-orange-400 rounded-t-sm opacity-60 hover:opacity-100 transition-opacity"
-                style={{ height: `${Math.random() * 100}%` }}
-              ></div>
-            ))}
+          <div style={{ height: '280px', marginBottom: '24px' }}>
+            <Line data={generateChartData()} options={chartOptions as any} />
           </div>
 
           {/* Chart Info */}
@@ -336,11 +438,11 @@ export default function Dashboard() {
             </div>
             <div className="bg-[#0b0e11] rounded-xl p-4 border border-[#2b2f36]">
               <p className="text-xs font-bold text-[#848e9c] uppercase mb-1">24h High</p>
-              <p className="text-lg font-black text-[#0ecb81]">$48,950.75</p>
+              <p className="text-lg font-black text-[#0ecb81]">${(btcPrice * 1.02).toLocaleString('en-US', { maximumFractionDigits: 2 })}</p>
             </div>
             <div className="bg-[#0b0e11] rounded-xl p-4 border border-[#2b2f36]">
               <p className="text-xs font-bold text-[#848e9c] uppercase mb-1">24h Low</p>
-              <p className="text-lg font-black text-[#f6465d]">$47,300.12</p>
+              <p className="text-lg font-black text-[#f6465d]">${(btcPrice * 0.98).toLocaleString('en-US', { maximumFractionDigits: 2 })}</p>
             </div>
             <div className="bg-[#0b0e11] rounded-xl p-4 border border-[#2b2f36]">
               <p className="text-xs font-bold text-[#848e9c] uppercase mb-1">Volume</p>
