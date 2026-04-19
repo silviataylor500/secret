@@ -23,6 +23,7 @@ interface UserProfile {
   unlockedLevel: number
   tradingIncome: number
   vipUnlocked: boolean
+  vipProfitRate: number
 }
 
 interface Settings {
@@ -100,8 +101,8 @@ export default function Dashboard() {
     return (
       <div className="min-h-screen bg-[#0b0e11] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-yellow-500 border-t-transparent rounded-full animate-spin"></div>
-          <div className="text-yellow-500 font-bold animate-pulse">Loading Dashboard...</div>
+          <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+          <div className="text-orange-500 font-bold animate-pulse">Loading Dashboard...</div>
         </div>
       </div>
     )
@@ -116,7 +117,7 @@ export default function Dashboard() {
           <p className="text-[#848e9c] mb-6">{error}</p>
           <button 
             onClick={() => window.location.reload()}
-            className="w-full py-3 bg-yellow-500 hover:bg-yellow-400 text-black rounded-xl font-bold transition-colors"
+            className="w-full py-3 bg-orange-500 hover:bg-orange-400 text-white rounded-xl font-bold transition-all"
           >
             Retry Connection
           </button>
@@ -147,16 +148,14 @@ export default function Dashboard() {
     return user && user.unlockedLevel >= level
   }
 
-  // Levels 1-5 only (Removed BASIC/Level 0)
   const levels = [
-    { name: 'Level 1', level: 1, rate: settings?.level1_rate || 0.05, color: 'from-blue-500/20 to-blue-600/5', border: 'border-blue-500/30' },
-    { name: 'Level 2', level: 2, rate: settings?.level2_rate || 0.10, color: 'from-purple-500/20 to-purple-600/5', border: 'border-purple-500/30' },
-    { name: 'Level 3', level: 3, rate: settings?.level3_rate || 0.15, color: 'from-pink-500/20 to-pink-600/5', border: 'border-pink-500/30' },
-    { name: 'Level 4', level: 4, rate: settings?.level4_rate || 0.20, color: 'from-orange-500/20 to-orange-600/5', border: 'border-orange-500/30' },
-    { name: 'Level 5', level: 5, rate: settings?.level5_rate || 0.25, color: 'from-yellow-500/20 to-yellow-600/5', border: 'border-yellow-500/30' },
+    { name: 'Level 1', level: 1, rate: settings?.level1_rate || 0.05, icon: '💚', color: 'from-green-500/20 to-green-600/5', border: 'border-green-500/30' },
+    { name: 'Level 2', level: 2, rate: settings?.level2_rate || 0.10, icon: '🤍', color: 'from-slate-500/20 to-slate-600/5', border: 'border-slate-500/30' },
+    { name: 'Level 3', level: 3, rate: settings?.level3_rate || 0.15, icon: '👑', color: 'from-yellow-500/20 to-yellow-600/5', border: 'border-yellow-500/30' },
+    { name: 'Level 4', level: 4, rate: settings?.level4_rate || 0.20, icon: '🔴', color: 'from-red-500/20 to-red-600/5', border: 'border-red-500/30' },
+    { name: 'Level 5', level: 5, rate: settings?.level5_rate || 0.25, icon: '💎', color: 'from-blue-500/20 to-blue-600/5', border: 'border-blue-500/30' },
   ]
 
-  // CALCULATE DYNAMIC RETURN RATE (Average of unlocked levels 1-5)
   const calculateAverageReturnRate = () => {
     if (!user) return 0;
     const unlockedLevels = levels.filter(l => l.level <= user.unlockedLevel);
@@ -165,7 +164,6 @@ export default function Dashboard() {
     return sum / unlockedLevels.length;
   }
 
-  // CALCULATE TOTAL DAILY EARNINGS (Sum of earnings from each level 1-5)
   const calculateTotalDailyEarnings = () => {
     if (!user) return 0;
     let total = 0;
@@ -196,13 +194,13 @@ export default function Dashboard() {
             <div className="flex items-center gap-3">
               <div className="hidden lg:flex flex-col items-end mr-4">
                 <span className="text-[10px] text-[#848e9c] uppercase tracking-widest font-bold">BTC Price</span>
-                <span className="text-sm font-bold text-[#0ecb81]">${btcPrice.toLocaleString()}</span>
+                <span className="text-sm font-bold text-orange-500">${btcPrice.toLocaleString()}</span>
               </div>
               
               {(user?.role === 'admin' || user?.role === 'co-admin' || user?.role === 'master-admin') && (
                 <button
                   onClick={() => navigate('/admin')}
-                  className="px-4 py-2 bg-yellow-500 hover:bg-yellow-400 text-black rounded-lg font-bold text-xs transition-all shadow-lg shadow-yellow-500/10"
+                  className="px-4 py-2 bg-orange-500 hover:bg-orange-400 text-white rounded-lg font-bold text-xs transition-all shadow-lg shadow-orange-500/10"
                 >
                   Admin
                 </button>
@@ -211,7 +209,7 @@ export default function Dashboard() {
               <div className="h-8 w-px bg-[#2b2f36] mx-1"></div>
               
               <div className="flex items-center gap-2 group cursor-pointer" onClick={() => navigate('/dashboard')}>
-                <div className="w-8 h-8 bg-[#2b2f36] rounded-full flex items-center justify-center border border-[#474d57] group-hover:border-yellow-500 transition-colors">
+                <div className="w-8 h-8 bg-[#2b2f36] rounded-full flex items-center justify-center border border-[#474d57] group-hover:border-orange-500 transition-colors">
                   <span className="text-xs font-bold text-white">{user?.name?.charAt(0).toUpperCase()}</span>
                 </div>
                 <span className="hidden sm:inline text-sm font-medium text-[#eaecef]">{user?.name}</span>
@@ -236,8 +234,8 @@ export default function Dashboard() {
         {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
           <div>
-            <h1 className="text-3xl font-black text-white mb-1">Portfolio Overview</h1>
-            <p className="text-[#848e9c] text-sm">Welcome back, <span className="text-white font-bold">{user?.name}</span>. Your assets are SAFU.</p>
+            <h1 className="text-4xl font-black text-white mb-2">Portfolio Overview</h1>
+            <p className="text-[#848e9c] text-sm">Welcome back, <span className="text-orange-500 font-bold">{user?.name}</span>. Your assets are SAFU.</p>
           </div>
           <div className="flex gap-3 w-full md:w-auto">
             <button
@@ -265,7 +263,7 @@ export default function Dashboard() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
           <div className="bg-[#1e2329] border border-[#2b2f36] p-6 rounded-3xl relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -275,7 +273,7 @@ export default function Dashboard() {
             <p className="text-xs font-bold text-[#848e9c] uppercase tracking-widest mb-2">Total Investment</p>
             <p className="text-3xl font-black text-white">${safeFormatUSD(user?.investmentAmount)}</p>
             <div className="mt-4 flex items-center gap-2">
-              <span className="text-[10px] font-bold px-2 py-0.5 bg-yellow-500/10 text-yellow-500 rounded uppercase">Active Assets</span>
+              <span className="text-[10px] font-bold px-2 py-0.5 bg-orange-500/10 text-orange-500 rounded uppercase">Active</span>
             </div>
           </div>
 
@@ -288,20 +286,7 @@ export default function Dashboard() {
             <p className="text-xs font-bold text-[#848e9c] uppercase tracking-widest mb-2">Trading Income</p>
             <p className="text-3xl font-black text-[#0ecb81]">${safeFormatUSD(user?.tradingIncome)}</p>
             <div className="mt-4 flex items-center gap-2">
-              <span className="text-[10px] font-bold px-2 py-0.5 bg-[#0ecb81]/10 text-[#0ecb81] rounded uppercase">VIP Profit</span>
-            </div>
-          </div>
-
-          <div className="bg-[#1e2329] border border-[#2b2f36] p-6 rounded-3xl relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-            </div>
-            <p className="text-xs font-bold text-[#848e9c] uppercase tracking-widest mb-2">BTC Allocated</p>
-            <p className="text-3xl font-black text-white">{safeFormatBTC(user?.btcAllocated)}</p>
-            <div className="mt-4 flex items-center gap-2">
-              <span className="text-[10px] font-bold px-2 py-0.5 bg-blue-500/10 text-blue-500 rounded uppercase">Network Value</span>
+              <span className="text-[10px] font-bold px-2 py-0.5 bg-[#0ecb81]/10 text-[#0ecb81] rounded uppercase">VIP</span>
             </div>
           </div>
 
@@ -314,12 +299,57 @@ export default function Dashboard() {
             <p className="text-xs font-bold text-[#848e9c] uppercase tracking-widest mb-2">Daily Earnings</p>
             <p className="text-3xl font-black text-yellow-500">${safeFormatUSD(totalDailyEarnings)}</p>
             <div className="mt-4 flex items-center gap-2">
-              <span className="text-[10px] font-bold px-2 py-0.5 bg-yellow-500/10 text-yellow-500 rounded uppercase">Est. 24h Return</span>
+              <span className="text-[10px] font-bold px-2 py-0.5 bg-yellow-500/10 text-yellow-500 rounded uppercase">24h Est.</span>
             </div>
           </div>
         </div>
 
-        {/* Level Overview */}
+        {/* BTC Chart Section */}
+        <div className="bg-[#1e2329] border border-[#2b2f36] rounded-3xl p-8 mb-10">
+          <div className="flex justify-between items-center mb-8">
+            <div>
+              <p className="text-xs font-bold text-[#848e9c] uppercase tracking-widest mb-2">BTC / USD</p>
+              <h2 className="text-4xl font-black text-white">${btcPrice.toLocaleString()}</h2>
+            </div>
+            <div className="text-right">
+              <p className="text-xs font-bold text-[#848e9c] uppercase mb-2">24h High</p>
+              <p className="text-2xl font-black text-[#0ecb81]">$48,950.75</p>
+            </div>
+          </div>
+
+          {/* Chart Visualization */}
+          <div className="h-40 flex items-end gap-1 mb-8">
+            {[...Array(50)].map((_, i) => (
+              <div 
+                key={i} 
+                className="flex-1 bg-gradient-to-t from-orange-500 to-orange-400 rounded-t-sm opacity-60 hover:opacity-100 transition-opacity"
+                style={{ height: `${Math.random() * 100}%` }}
+              ></div>
+            ))}
+          </div>
+
+          {/* Chart Info */}
+          <div className="grid grid-cols-4 gap-4">
+            <div className="bg-[#0b0e11] rounded-xl p-4 border border-[#2b2f36]">
+              <p className="text-xs font-bold text-[#848e9c] uppercase mb-1">1H</p>
+              <p className="text-lg font-black text-white">+2.5%</p>
+            </div>
+            <div className="bg-[#0b0e11] rounded-xl p-4 border border-[#2b2f36]">
+              <p className="text-xs font-bold text-[#848e9c] uppercase mb-1">24h High</p>
+              <p className="text-lg font-black text-[#0ecb81]">$48,950.75</p>
+            </div>
+            <div className="bg-[#0b0e11] rounded-xl p-4 border border-[#2b2f36]">
+              <p className="text-xs font-bold text-[#848e9c] uppercase mb-1">24h Low</p>
+              <p className="text-lg font-black text-[#f6465d]">$47,300.12</p>
+            </div>
+            <div className="bg-[#0b0e11] rounded-xl p-4 border border-[#2b2f36]">
+              <p className="text-xs font-bold text-[#848e9c] uppercase mb-1">Volume</p>
+              <p className="text-lg font-black text-orange-500">2,480 BTC</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Mining Levels */}
         <div className="mb-10">
           <div className="flex justify-between items-end mb-6">
             <div>
@@ -336,7 +366,7 @@ export default function Dashboard() {
             {levels.map((l) => (
               <div 
                 key={l.level}
-                className={`p-6 rounded-3xl border ${l.border} bg-gradient-to-br ${l.color} relative overflow-hidden group transition-all hover:scale-[1.02]`}
+                className={`p-6 rounded-3xl border ${l.border} bg-gradient-to-br ${l.color} relative overflow-hidden group transition-all hover:scale-[1.02] cursor-pointer`}
               >
                 {!isLevelUnlocked(l.level) && (
                   <div className="absolute inset-0 bg-[#0b0e11]/60 backdrop-blur-[2px] flex items-center justify-center z-10">
@@ -349,10 +379,12 @@ export default function Dashboard() {
                 )}
                 <div className="relative z-0">
                   <div className="flex justify-between items-start mb-4">
-                    <span className="text-[10px] font-black px-2 py-1 bg-white/10 rounded uppercase tracking-widest">{l.name}</span>
+                    <span className="text-2xl">{l.icon}</span>
                     <span className="text-xs font-bold text-white/60">{l.rate}%</span>
                   </div>
-                  <p className="text-xs text-[#848e9c] mb-1">Level Balance</p>
+                  <p className="text-xs text-[#848e9c] mb-1">Level {l.level}</p>
+                  <p className="text-lg font-black text-white mb-3">{l.name}</p>
+                  <p className="text-xs text-[#848e9c] mb-1">Balance</p>
                   <p className="text-xl font-black text-white">${safeFormatUSD((user as any)[`level${l.level}_amount` as keyof UserProfile] || 0)}</p>
                 </div>
               </div>
