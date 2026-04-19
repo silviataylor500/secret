@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 interface LogoProps {
   className?: string;
@@ -13,6 +13,8 @@ const Logo: React.FC<LogoProps> = ({
   showText = true,
   textColor = "text-white"
 }) => {
+  const [imgError, setImgError] = useState(false);
+
   const sizeClasses = {
     sm: "w-6 h-6",
     md: "w-8 h-8",
@@ -29,15 +31,20 @@ const Logo: React.FC<LogoProps> = ({
 
   return (
     <div className={`flex items-center gap-3 ${className}`}>
-      <div className={`${sizeClasses[size]} relative overflow-hidden rounded-lg`}>
-        <img 
-          src="/assets/logo.png" 
-          alt="Logo" 
-          className="w-full h-full object-contain animate-pulse"
-          style={{
-            filter: 'drop-shadow(0 0 8px rgba(255, 215, 0, 0.5))',
-          }}
-        />
+      <div className={`${sizeClasses[size]} relative overflow-hidden rounded-lg flex items-center justify-center bg-yellow-500/10`}>
+        {!imgError ? (
+          <img 
+            src="/assets/logo.png" 
+            alt="Logo" 
+            className="w-full h-full object-contain animate-pulse"
+            onError={() => setImgError(true)}
+            style={{
+              filter: 'drop-shadow(0 0 8px rgba(255, 215, 0, 0.5))',
+            }}
+          />
+        ) : (
+          <span className="text-yellow-500 font-black text-xl animate-pulse">₿</span>
+        )}
         <div className="absolute inset-0 bg-gradient-to-tr from-yellow-500/20 to-transparent animate-pulse pointer-events-none"></div>
       </div>
       {showText && (
