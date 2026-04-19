@@ -118,6 +118,9 @@ export default function Dashboard() {
     return isNaN(num) ? '0.00000000' : num.toFixed(8)
   }
 
+  const safeFormatUSD = (val: any) => formatUSD(val);
+  const safeFormatBTC = (val: any) => formatBTC(val);
+
   const formatPercent = (val: any) => {
     const num = parseFloat(val)
     return isNaN(num) ? '0.000' : num.toFixed(3)
