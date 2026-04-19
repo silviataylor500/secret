@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import Logo from '../components/Logo'
 
 interface User {
   id: string
@@ -482,7 +483,7 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-slate-900">
       {/* Sidebar */}
       <div className="fixed left-0 top-0 h-full w-64 bg-slate-800 border-r border-slate-700 p-6">
-        <div className="text-xl font-bold text-white mb-10">BINANCE <span className="text-orange-500">x</span> AMAZON</div>
+        <div className="mb-10"><Logo size="md" /></div>
         <nav className="space-y-2">
           <button
             onClick={() => setActiveTab('users')}

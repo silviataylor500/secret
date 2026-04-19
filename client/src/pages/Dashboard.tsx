@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import Logo from '../components/Logo'
 
 interface UserProfile {
   id: string
@@ -169,10 +170,7 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-yellow-500 rounded flex items-center justify-center">
-                <span className="text-black font-black text-sm">₿</span>
-              </div>
-              <span className="text-xl font-black tracking-tighter text-white">BINANCE <span className="text-orange-500">x</span> AMAZON</span>
+              <Logo size="md" />
               <div className="hidden md:flex items-center gap-2 ml-6 px-3 py-1 bg-[#2b2f36] rounded-full border border-[#474d57]">
                 <span className="w-2 h-2 bg-[#0ecb81] rounded-full animate-pulse"></span>
                 <span className="text-xs font-bold text-[#848e9c]">Chain {user?.chain}</span>
@@ -252,238 +250,134 @@ export default function Dashboard() {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-          <div className="bg-[#1e2329] border border-[#2b2f36] rounded-2xl p-6 hover:border-yellow-500/30 transition-all group">
-            <div className="flex justify-between items-start mb-4">
-              <p className="text-[#848e9c] text-xs font-bold uppercase tracking-wider">Total Invested</p>
-              <span className="text-xl group-hover:scale-110 transition-transform">💵</span>
+          <div className="bg-[#1e2329] border border-[#2b2f36] p-6 rounded-3xl relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
             </div>
-            <p className="text-3xl font-black text-white">${formatUSD(user?.investmentAmount)}</p>
-          </div>
-
-          <div className="bg-[#1e2329] border border-[#2b2f36] rounded-2xl p-6 hover:border-orange-500/30 transition-all group">
-            <div className="flex justify-between items-start mb-4">
-              <p className="text-[#848e9c] text-xs font-bold uppercase tracking-wider">Trading Income</p>
-              <span className="text-xl group-hover:scale-110 transition-transform">📈</span>
-            </div>
-            <p className="text-3xl font-black text-orange-500">${formatUSD(user?.tradingIncome)}</p>
-            <div className="mt-2 flex items-center gap-1">
-              <span className="text-[10px] text-[#848e9c]">VIP Profit</span>
+            <p className="text-xs font-bold text-[#848e9c] uppercase tracking-widest mb-2">Total Investment</p>
+            <p className="text-3xl font-black text-white">${safeFormatUSD(user?.investmentAmount)}</p>
+            <div className="mt-4 flex items-center gap-2">
+              <span className="text-[10px] font-bold px-2 py-0.5 bg-yellow-500/10 text-yellow-500 rounded uppercase">Active Assets</span>
             </div>
           </div>
 
-          <div className="bg-[#1e2329] border border-[#2b2f36] rounded-2xl p-6 hover:border-[#0ecb81]/30 transition-all group">
-            <div className="flex justify-between items-start mb-4">
-              <p className="text-[#848e9c] text-xs font-bold uppercase tracking-wider">Daily Earnings</p>
-              <span className="text-xl group-hover:scale-110 transition-transform">💰</span>
+          <div className="bg-[#1e2329] border border-[#2b2f36] p-6 rounded-3xl relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
             </div>
-            <p className="text-3xl font-black text-[#0ecb81]">${formatUSD(totalDailyEarnings)}</p>
-            <div className="mt-2 flex items-center gap-1">
-              <span className="text-[10px] text-[#848e9c]">Across all active levels</span>
+            <p className="text-xs font-bold text-[#848e9c] uppercase tracking-widest mb-2">Trading Income</p>
+            <p className="text-3xl font-black text-[#0ecb81]">${safeFormatUSD(user?.tradingIncome)}</p>
+            <div className="mt-4 flex items-center gap-2">
+              <span className="text-[10px] font-bold px-2 py-0.5 bg-[#0ecb81]/10 text-[#0ecb81] rounded uppercase">VIP Profit</span>
+            </div>
+          </div>
+
+          <div className="bg-[#1e2329] border border-[#2b2f36] p-6 rounded-3xl relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+            </div>
+            <p className="text-xs font-bold text-[#848e9c] uppercase tracking-widest mb-2">BTC Allocated</p>
+            <p className="text-3xl font-black text-white">{safeFormatBTC(user?.btcAllocated)}</p>
+            <div className="mt-4 flex items-center gap-2">
+              <span className="text-[10px] font-bold px-2 py-0.5 bg-blue-500/10 text-blue-500 rounded uppercase">Network Value</span>
             </div>
           </div>
 
-          <div className="bg-[#1e2329] border border-[#2b2f36] rounded-2xl p-6 hover:border-blue-500/30 transition-all group">
-            <div className="flex justify-between items-start mb-4">
-              <p className="text-[#848e9c] text-xs font-bold uppercase tracking-wider">BTC Allocated</p>
-              <span className="text-xl group-hover:scale-110 transition-transform">🪙</span>
+          <div className="bg-[#1e2329] border border-[#2b2f36] p-6 rounded-3xl relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
             </div>
-            <p className="text-2xl font-black text-white">{formatBTC(user?.btcAllocated)} BTC</p>
-            <div className="mt-2 flex items-center gap-1">
-              <span className="text-[10px] text-[#848e9c]">Secured in Cold Storage</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Levels Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
-          {levels.map((l) => (
-            <div 
-              key={l.level}
-              className={`relative overflow-hidden rounded-2xl border-2 transition-all p-6 ${
-                isLevelUnlocked(l.level) 
-                  ? `bg-gradient-to-br ${l.color} ${l.border} hover:scale-[1.02]` 
-                  : 'bg-[#1e2329] border-[#2b2f36] opacity-75 grayscale'
-              }`}
-            >
-              {!isLevelUnlocked(l.level) && (
-                <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center">
-                  <div className="w-10 h-10 bg-[#2b2f36] rounded-full flex items-center justify-center mb-2 border border-[#474d57]">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[#848e9c]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                  </div>
-                  <span className="text-white font-black text-xs tracking-widest">LOCKED</span>
-                </div>
-              )}
-              
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <h3 className="text-xl font-black text-white tracking-tight">{l.name}</h3>
-                  <p className="text-[#848e9c] text-[10px] font-bold uppercase tracking-widest">Automated Digging</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[#0ecb81] text-lg font-black">{formatPercent(l.rate)}%</p>
-                  <p className="text-[#848e9c] text-[10px] font-bold uppercase">Daily Rate</p>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <div className="flex justify-between text-[10px] font-bold uppercase text-[#848e9c] mb-1">
-                    <span>Allocation</span>
-                    <span className="text-white">${formatUSD((user as any)[`level${l.level}_amount` as keyof UserProfile] || 0)}</span>
-                  </div>
-                  <div className="w-full h-1.5 bg-[#2b2f36] rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-yellow-500 transition-all duration-1000" 
-                      style={{ width: isLevelUnlocked(l.level) ? '100%' : '0%' }}
-                    ></div>
-                  </div>
-                </div>
-                
-                <div className="flex justify-between items-center pt-2">
-                  <div>
-                    <p className="text-[#848e9c] text-[10px] font-bold uppercase">Daily Profit</p>
-                    <p className="text-sm font-bold text-white">
-                      ${formatUSD((parseFloat((user as any)[`level${l.level}_amount` as keyof UserProfile] || 0) * l.rate) / 100)}
-                    </p>
-                  </div>
-                  <div className="px-3 py-1 bg-[#2b2f36] rounded-lg border border-[#474d57]">
-                    <span className="text-[10px] font-bold text-[#0ecb81]">ACTIVE</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-
-          {/* VIP Trading Box */}
-          <div 
-            onClick={() => user?.vipUnlocked && navigate('/trading')}
-            className={`relative overflow-hidden rounded-2xl border-2 transition-all p-6 cursor-pointer group ${
-              user?.vipUnlocked 
-                ? 'bg-gradient-to-br from-orange-500/20 to-orange-600/5 border-orange-500/50 hover:border-orange-500' 
-                : 'bg-[#1e2329] border-[#2b2f36] opacity-75 grayscale'
-            }`}
-          >
-            {!user?.vipUnlocked && (
-              <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center">
-                <div className="w-12 h-12 bg-[#2b2f36] rounded-full flex items-center justify-center mb-2 border border-[#474d57]">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                </div>
-                <span className="text-white font-black text-sm tracking-widest">LOCKED</span>
-                <span className="text-[10px] text-[#848e9c] mt-1">Contact Admin to Unlock</span>
-              </div>
-            )}
-            <div className="flex justify-between items-start mb-6">
-              <div>
-                <h3 className="text-2xl font-black text-white tracking-tight">VIP</h3>
-                <p className="text-orange-500 text-xs font-bold uppercase tracking-widest">Option Trading</p>
-              </div>
-              <div className="w-10 h-10 bg-orange-500/20 rounded-xl flex items-center justify-center">
-                <span className="text-orange-500 text-xl">💎</span>
-              </div>
-            </div>
-            <div className="space-y-4">
-              <div className="flex justify-between items-end">
-                <div>
-                  <p className="text-[#848e9c] text-[10px] font-bold uppercase">Potential Profit</p>
-                  <p className="text-xl font-black text-white">20% - 80%</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[#848e9c] text-[10px] font-bold uppercase">Duration</p>
-                  <p className="text-sm font-bold text-white">30 Seconds</p>
-                </div>
-              </div>
-              <button className={`w-full py-3 rounded-xl font-black text-sm transition-all ${
-                user?.vipUnlocked 
-                  ? 'bg-orange-500 hover:bg-orange-400 text-white shadow-lg shadow-orange-500/20' 
-                  : 'bg-[#2b2f36] text-[#474d57]'
-              }`}>
-                {user?.vipUnlocked ? 'START TRADING' : 'LOCKED'}
-              </button>
+            <p className="text-xs font-bold text-[#848e9c] uppercase tracking-widest mb-2">Daily Earnings</p>
+            <p className="text-3xl font-black text-yellow-500">${safeFormatUSD(totalDailyEarnings)}</p>
+            <div className="mt-4 flex items-center gap-2">
+              <span className="text-[10px] font-bold px-2 py-0.5 bg-yellow-500/10 text-yellow-500 rounded uppercase">Est. 24h Return</span>
             </div>
           </div>
         </div>
 
-        {/* Market Insights */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 bg-[#1e2329] border border-[#2b2f36] rounded-2xl p-8">
-            <div className="flex justify-between items-center mb-8">
-              <h3 className="text-xl font-black text-white">Profit Projections</h3>
-              <div className="flex gap-2">
-                <span className="px-3 py-1 bg-yellow-500/10 text-yellow-500 text-[10px] font-bold rounded-lg border border-yellow-500/20">ESTIMATED</span>
-              </div>
+        {/* Level Overview */}
+        <div className="mb-10">
+          <div className="flex justify-between items-end mb-6">
+            <div>
+              <h2 className="text-2xl font-black text-white mb-1">Mining Levels</h2>
+              <p className="text-[#848e9c] text-sm">Upgrade your level to increase your daily return rate.</p>
             </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
-              <div className="p-6 bg-[#0b0e11] rounded-2xl border border-[#2b2f36] hover:border-yellow-500/30 transition-all">
-                <p className="text-[#848e9c] text-xs font-bold uppercase mb-2">Weekly Profit</p>
-                <p className="text-2xl font-black text-white">${formatUSD(totalDailyEarnings * 7)}</p>
-                <p className="text-[10px] text-[#0ecb81] mt-1 font-bold">+700% Efficiency</p>
-              </div>
-              <div className="p-6 bg-[#0b0e11] rounded-2xl border border-[#2b2f36] hover:border-yellow-500/30 transition-all">
-                <p className="text-[#848e9c] text-xs font-bold uppercase mb-2">Monthly Profit</p>
-                <p className="text-2xl font-black text-white">${formatUSD(totalDailyEarnings * 30)}</p>
-                <p className="text-[10px] text-[#0ecb81] mt-1 font-bold">+3000% Efficiency</p>
-              </div>
-              <div className="p-6 bg-[#0b0e11] rounded-2xl border border-[#2b2f36] hover:border-yellow-500/30 transition-all">
-                <p className="text-[#848e9c] text-xs font-bold uppercase mb-2">Yearly Profit</p>
-                <p className="text-2xl font-black text-white">${formatUSD(totalDailyEarnings * 365)}</p>
-                <p className="text-[10px] text-[#0ecb81] mt-1 font-bold">+36500% Efficiency</p>
-              </div>
+            <div className="hidden sm:block text-right">
+              <p className="text-[10px] text-[#848e9c] uppercase tracking-widest font-bold mb-1">Avg. Return Rate</p>
+              <p className="text-xl font-black text-[#0ecb81]">{formatPercent(dynamicReturnRate)}%</p>
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-2xl p-8 flex flex-col justify-between relative overflow-hidden group">
-            <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-3xl group-hover:bg-white/20 transition-all"></div>
-            <div className="relative z-10">
-              <h3 className="text-2xl font-black text-black mb-2">Need Help?</h3>
-              <p className="text-black/70 text-sm font-medium mb-6">Our 24/7 support team is here to assist you with your investments.</p>
-              <button 
-                onClick={() => navigate('/chat')}
-                className="px-6 py-3 bg-black text-white rounded-xl font-bold text-sm hover:bg-black/80 transition-all"
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            {levels.map((l) => (
+              <div 
+                key={l.level}
+                className={`p-6 rounded-3xl border ${l.border} bg-gradient-to-br ${l.color} relative overflow-hidden group transition-all hover:scale-[1.02]`}
               >
-                Contact Support
-              </button>
-            </div>
-            <div className="relative z-10 mt-8 pt-8 border-t border-black/10">
-              <div className="flex items-center gap-3">
-                <div className="flex -space-x-2">
-                  {[1,2,3].map(i => (
-                    <div key={i} className="w-8 h-8 rounded-full border-2 border-yellow-500 bg-[#2b2f36] flex items-center justify-center text-[10px] font-bold text-white">
-                      {String.fromCharCode(64 + i)}
+                {!isLevelUnlocked(l.level) && (
+                  <div className="absolute inset-0 bg-[#0b0e11]/60 backdrop-blur-[2px] flex items-center justify-center z-10">
+                    <div className="bg-[#1e2329] p-2 rounded-full border border-[#2b2f36] shadow-xl">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[#848e9c]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
                     </div>
-                  ))}
+                  </div>
+                )}
+                <div className="relative z-0">
+                  <div className="flex justify-between items-start mb-4">
+                    <span className="text-[10px] font-black px-2 py-1 bg-white/10 rounded uppercase tracking-widest">{l.name}</span>
+                    <span className="text-xs font-bold text-white/60">{l.rate}%</span>
+                  </div>
+                  <p className="text-xs text-[#848e9c] mb-1">Level Balance</p>
+                  <p className="text-xl font-black text-white">${safeFormatUSD((user as any)[`level${l.level}_amount` as keyof UserProfile] || 0)}</p>
                 </div>
-                <span className="text-xs font-bold text-black/60">Advisors Online</span>
               </div>
+            ))}
+          </div>
+        </div>
+
+        {/* VIP Trading Banner */}
+        <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-3xl p-8 relative overflow-hidden group cursor-pointer" onClick={() => navigate('/trading')}>
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-20 -mt-20 blur-3xl group-hover:bg-white/20 transition-all"></div>
+          <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-6">
+            <div className="text-center md:text-left">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-black/20 rounded-full mb-4">
+                <span className="w-2 h-2 bg-white rounded-full animate-pulse"></span>
+                <span className="text-[10px] font-bold text-white uppercase tracking-widest">VIP Exclusive</span>
+              </div>
+              <h2 className="text-3xl font-black text-white mb-2 uppercase tracking-tighter">Advanced VIP Trading</h2>
+              <p className="text-white/80 max-w-xl">Execute high-frequency trades with our automated system and earn up to 80% profit per trade. VIP access required.</p>
             </div>
+            <div className="flex flex-col items-center gap-3">
+              <button className="px-10 py-4 bg-white text-orange-600 rounded-xl font-black text-lg hover:bg-orange-50 transition-all shadow-xl shadow-black/10">
+                {user?.vipUnlocked ? 'ENTER TRADING' : 'UNLOCK VIP'}
+              </button>
+              <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest">Powered by Digging Pool AI</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="mt-20 pt-10 border-t border-[#2b2f36] flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="flex items-center gap-3">
+            <Logo size="sm" />
+            <span className="text-xs text-[#474d57]">© 2026 Digging Pool. All rights reserved.</span>
+          </div>
+          <div className="flex gap-6">
+            <span className="text-xs text-[#848e9c] hover:text-white cursor-pointer transition-colors">Support</span>
+            <span className="text-xs text-[#848e9c] hover:text-white cursor-pointer transition-colors">Security</span>
+            <span className="text-xs text-[#848e9c] hover:text-white cursor-pointer transition-colors">Privacy</span>
           </div>
         </div>
       </div>
-      
-      {/* Footer */}
-      <footer className="bg-[#181a20] border-t border-[#2b2f36] py-12 mt-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-8">
-            <div className="flex items-center gap-3">
-              <div className="w-6 h-6 bg-yellow-500 rounded flex items-center justify-center">
-                <span className="text-black font-black text-[10px]">₿</span>
-              </div>
-              <span className="text-lg font-black tracking-tighter text-white">BINANCE <span className="text-orange-500">x</span> AMAZON</span>
-            </div>
-            <div className="flex gap-8 text-[#848e9c] text-xs font-bold uppercase tracking-widest">
-              <a href="#" className="hover:text-white transition-colors">Terms</a>
-              <a href="#" className="hover:text-white transition-colors">Privacy</a>
-              <a href="#" className="hover:text-white transition-colors">Security</a>
-              <a href="#" className="hover:text-white transition-colors">SAFU</a>
-            </div>
-            <p className="text-[#848e9c] text-[10px] font-medium">© 2026 Binance x Amazon. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
     </div>
   )
 }

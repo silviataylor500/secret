@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import axios from 'axios'
+import Logo from '../components/Logo'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -53,9 +54,7 @@ export default function Login() {
         <div className="bg-slate-800 border border-slate-700 rounded-lg p-8">
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4">
-              <div className="w-12 h-12 bg-yellow-500 rounded-full flex items-center justify-center">
-                <span className="text-black font-bold text-xl">₿</span>
-              </div>
+              <Logo size="xl" showText={false} />
             </div>
             <h1 className="text-2xl font-bold text-white">Log In</h1>
             <p className="text-slate-400 mt-2">Access your investment dashboard</p>

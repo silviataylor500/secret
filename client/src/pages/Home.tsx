@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import axios from 'axios'
+import Logo from '../components/Logo'
 
 interface PriceData {
   bitcoin: {
@@ -40,12 +41,9 @@ export default function Home() {
       <nav className="bg-[#181a20] border-b border-[#2b2f36] sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3 group cursor-pointer">
-              <div className="w-10 h-10 bg-yellow-500 rounded-lg flex items-center justify-center transform group-hover:rotate-12 transition-transform duration-300">
-                <span className="text-black font-black text-xl">₿</span>
-              </div>
-              <span className="text-2xl font-black tracking-tighter text-white">BINANCE <span className="text-orange-500">x</span> AMAZON</span>
-            </div>
+            <Link to="/" className="flex items-center gap-3 group cursor-pointer">
+              <Logo size="lg" />
+            </Link>
             <div className="flex items-center gap-6">
               <Link to="/login" className="text-sm font-medium text-[#eaecef] hover:text-yellow-500 transition-colors">
                 Log In
@@ -161,7 +159,7 @@ export default function Home() {
       <div className="bg-[#181a20] py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-white mb-4">Why Choose Binance x Amazon?</h2>
+            <h2 className="text-4xl font-bold text-white mb-4">Why Choose DIGGING POOL?</h2>
             <p className="text-[#848e9c] max-w-2xl mx-auto">Experience the next generation of crypto wealth management with our secure and automated platform.</p>
           </div>
 
@@ -185,22 +183,17 @@ export default function Home() {
       <footer className="bg-[#0b0e11] border-t border-[#2b2f36] py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-8">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-yellow-500 rounded flex items-center justify-center">
-                <span className="text-black font-bold text-[10px]">₿</span>
-              </div>
-              <span className="font-bold text-white tracking-tight">BINANCE x AMAZON</span>
-            </div>
+            <Logo size="md" />
             <div className="flex gap-8 text-sm text-[#848e9c]">
               <span className="hover:text-white cursor-pointer transition-colors">Terms of Service</span>
               <span className="hover:text-white cursor-pointer transition-colors">Privacy Policy</span>
               <span className="hover:text-white cursor-pointer transition-colors">Cookie Policy</span>
             </div>
-            <p className="text-sm text-[#474d57]">© 2026 Binance.com. All rights reserved.</p>
+            <p className="text-sm text-[#474d57]">© 2026 DiggingPool.com. All rights reserved.</p>
           </div>
           <div className="mt-8 pt-8 border-t border-[#2b2f36]">
             <p className="text-[10px] text-[#474d57] leading-relaxed text-center">
-              Disclaimer: Cryptocurrency investment is subject to high market risk. Binance is not responsible for any of your trading losses. Please do your own research and invest wisely. The "Passive Income" simulator is for educational purposes and demonstrates potential returns based on historical data.
+              Disclaimer: Cryptocurrency investment is subject to high market risk. Digging Pool is not responsible for any of your trading losses. Please do your own research and invest wisely. The "Passive Income" simulator is for educational purposes and demonstrates potential returns based on historical data.
             </p>
           </div>
         </div>

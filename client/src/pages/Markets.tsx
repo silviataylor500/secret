@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import Logo from '../components/Logo'
 
 export default function Markets() {
   const navigate = useNavigate()
@@ -20,11 +21,8 @@ export default function Markets() {
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-orange-500/10 blur-[120px] rounded-full animate-pulse"></div>
 
       {/* Header */}
-      <div className="absolute top-8 left-8 flex items-center gap-3">
-        <div className="w-8 h-8 bg-yellow-500 rounded flex items-center justify-center">
-          <span className="text-black font-black text-sm">₿</span>
-        </div>
-        <span className="text-xl font-black tracking-tighter">BINANCE <span className="text-orange-500">x</span> AMAZON</span>
+      <div className="absolute top-8 left-8">
+        <Logo size="md" />
       </div>
 
       <button 

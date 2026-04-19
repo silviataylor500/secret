@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import Logo from '../components/Logo'
 
 export default function Withdrawal() {
   const navigate = useNavigate()
@@ -69,12 +70,7 @@ export default function Withdrawal() {
       <nav className="bg-slate-900 border-b border-slate-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center">
-                <span className="text-black font-bold text-xs">₿</span>
-              </div>
-              <span className="text-xl font-bold text-white">BINANCE</span>
-            </div>
+            <Logo size="md" />
             <button
               onClick={() => navigate('/dashboard')}
               className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg font-semibold text-sm"
