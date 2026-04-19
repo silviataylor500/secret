@@ -5,6 +5,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import mysql from 'mysql2/promise';
 import crypto from 'crypto';
+import axios from 'axios';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -765,9 +766,8 @@ app.get('/api/admin/deposits', authMiddleware, adminMiddleware, async (req, res)
 // Helper to get BTC price
 async function getBtcPrice() {
   try {
-    const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd');
-    const data = await response.json();
-    return data.bitcoin.usd;
+    const response = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd');
+    return response.data.bitcoin.usd;
   } catch (error) {
     console.error('Failed to fetch BTC price:', error);
     return 65000; // Fallback
@@ -1105,7 +1105,7 @@ app.post('/api/trading/execute', authMiddleware, async (req, res) => {
 });
 
 // Admin: Update VIP status and profit rate
-app.put('/api/admin/users/:id/vip', authMiddleware, coAdminMiddleware, async (req, res) => {
+app.put('/api/admin/users/:id/vip', authMiddleware, adminMiddleware, async (req, res) => {
   const { vipUnlocked } = req.body;
   const userId = req.params.id;
 
@@ -1120,7 +1120,7 @@ app.put('/api/admin/users/:id/vip', authMiddleware, coAdminMiddleware, async (re
   }
 });
 
-app.post('/api/admin/settings/vip-rate', authMiddleware, coAdminMiddleware, async (req, res) => {
+app.post('/api/admin/settings/vip-rate', authMiddleware, adminMiddleware, async (req, res) => {
   const { chain, profitRate } = req.body;
   
   try {
