@@ -1171,6 +1171,7 @@ const possiblePaths = [
   path.resolve(__dirname, '../dist/public'),
   path.resolve(process.cwd(), 'dist/public'),
   path.resolve(process.cwd(), 'client/dist/public'),
+  path.resolve(__dirname, '../client/dist/public'),
   '/app/dist/public'
 ];
 
@@ -1203,14 +1204,6 @@ if (fs.existsSync(distPath)) {
     maxAge: '1d',
     etag: false
   }));
-  
-  const assetsPath = path.join(distPath, 'assets');
-  if (fs.existsSync(assetsPath)) {
-    app.use('/assets', express.static(assetsPath, {
-      maxAge: '1y',
-      etag: false
-    }));
-  }
 } else {
   console.warn('WARNING: Static files directory does not exist at', distPath);
 }
