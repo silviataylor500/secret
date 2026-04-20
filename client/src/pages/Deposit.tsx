@@ -9,7 +9,7 @@ export default function Deposit() {
   const [levelRates, setLevelRates] = useState<number[]>([0.05, 0.1, 0.15, 0.2, 0.25, 0.3])
   const [transactionId, setTransactionId] = useState<string>('')
   const [amount, setAmount] = useState<string>('')
-  const [selectedLevel, setSelectedLevel] = useState<number>(0)
+  const [selectedLevel, setSelectedLevel] = useState<number>(6)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string>('')
   const [success, setSuccess] = useState<string>('')
@@ -38,8 +38,7 @@ export default function Deposit() {
         response.data.level2_rate,
         response.data.level3_rate,
         response.data.level4_rate,
-        response.data.level5_rate,
-        response.data.level6_rate
+        response.data.level5_rate
       ])
       setLoading(false)
     } catch (err: any) {
@@ -114,14 +113,15 @@ export default function Deposit() {
     )
   }
 
+  // v2 - VIP AT TOP - FORCE REFRESH
   const levels = [
+    { value: 6, label: '★ VIP TRADING (80%) ★' },
     { value: 0, label: `BASIC (${levelRates[0]}%)` },
     { value: 1, label: `Level 1 (${levelRates[1]}%)` },
     { value: 2, label: `Level 2 (${levelRates[2]}%)` },
     { value: 3, label: `Level 3 (${levelRates[3]}%)` },
     { value: 4, label: `Level 4 (${levelRates[4]}%)` },
     { value: 5, label: `Level 5 (${levelRates[5]}%)` },
-    { value: 6, label: `VIP Trading (${levelRates[6]}%)` },
   ]
 
   return (
