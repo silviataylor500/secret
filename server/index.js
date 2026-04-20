@@ -1165,46 +1165,31 @@ app.post('/api/admin/settings/vip-rate', authMiddleware, adminMiddleware, async 
   }
 });
 
-// Static files
-// Define the path to the frontend build
-const possiblePaths = [
-  path.resolve(process.cwd(), 'dist/public'),
-  path.resolve(__dirname, '../dist/public'),
-  '/app/dist/public'
-];
+// Static files configuration
+const rootDistPath = path.resolve(process.cwd(), 'dist/public');
+const clientDistPath = path.resolve(process.cwd(), 'client/dist/public');
 
 console.log('\n=== STATIC FILES DIAGNOSTIC ===');
-console.log('Current working directory:', process.cwd());
-console.log('__dirname:', __dirname);
-console.log('Checking possible paths:');
+console.log('CWD:', process.cwd());
+console.log('Root Dist Path:', rootDistPath, fs.existsSync(rootDistPath) ? '(Exists)' : '(Missing)');
+console.log('Client Dist Path:', clientDistPath, fs.existsSync(clientDistPath) ? '(Exists)' : '(Missing)');
 
-let distPath = null;
-for (const p of possiblePaths) {
-  const exists = fs.existsSync(p);
-  console.log(`  ${exists ? '✓' : '✗'} ${p}`);
-  if (exists && !distPath) {
-    distPath = p;
-    const files = fs.readdirSync(p);
-    console.log(`    Files in ${p}:`, files);
-  }
+// Serve static files from both potential locations to be safe
+if (fs.existsSync(rootDistPath)) {
+  console.log('Serving static files from Root Dist Path');
+  app.use(express.static(rootDistPath));
+  app.use('/assets', express.static(path.join(rootDistPath, 'assets')));
+}
+if (fs.existsSync(clientDistPath)) {
+  console.log('Serving static files from Client Dist Path');
+  app.use(express.static(clientDistPath));
+  app.use('/assets', express.static(path.join(clientDistPath, 'assets')));
 }
 
-if (!distPath) {
-  console.error('ERROR: No static files directory found!');
-  distPath = '/app/dist/public';
-}
-
-console.log('Final static files path:', distPath);
+// Set the primary distPath for the SPA fallback
+const distPath = fs.existsSync(rootDistPath) ? rootDistPath : clientDistPath;
+console.log('Primary SPA Dist Path:', distPath);
 console.log('=== END DIAGNOSTIC ===\n');
-
-if (fs.existsSync(distPath)) {
-  app.use(express.static(distPath, {
-    maxAge: '1d',
-    etag: false
-  }));
-} else {
-  console.warn('WARNING: Static files directory does not exist at', distPath);
-}
 
 app.get('*', (req, res) => {
   console.log(`[Request] ${req.method} ${req.path}`);
