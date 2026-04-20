@@ -739,8 +739,8 @@ app.post('/api/deposits/submit', authMiddleware, async (req, res) => {
       return res.status(400).json({ message: 'Transaction ID must be 5-30 alphanumeric characters' });
     }
 
-    if (level < 0 || level > 5) {
-      return res.status(400).json({ message: 'Level must be between 0 (Basic) and 5' });
+    if (level < 0 || level > 6) {
+      return res.status(400).json({ message: 'Level must be between 0 (Basic) and 6 (VIP)' });
     }
 
     const connection = await pool.getConnection();
