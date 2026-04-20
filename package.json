@@ -7,7 +7,7 @@
     "dev": "vite --host",
     "build": "vite build",
     "server": "node server/index.js",
-    "start": "npm run build && npm run server",
+    "start": "npm run server",
     "deploy": "npm install && npm run build && npm run server",
     "preview": "vite preview"
   },
