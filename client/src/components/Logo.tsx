@@ -34,7 +34,7 @@ const Logo: React.FC<LogoProps> = ({
       <div className={`${sizeClasses[size]} relative overflow-hidden rounded-lg flex items-center justify-center bg-yellow-500/10`}>
         {!imgError ? (
           <img 
-            src="assets/logo.png" 
+            src="/assets/logo.png" 
             alt="Logo" 
             className="w-full h-full object-contain animate-pulse"
             onError={() => setImgError(true)}
