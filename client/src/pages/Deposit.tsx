@@ -38,7 +38,8 @@ export default function Deposit() {
         response.data.level2_rate,
         response.data.level3_rate,
         response.data.level4_rate,
-        response.data.level5_rate
+        response.data.level5_rate,
+        response.data.level6_rate
       ])
       setLoading(false)
     } catch (err: any) {
@@ -120,7 +121,7 @@ export default function Deposit() {
     { value: 3, label: `Level 3 (${levelRates[3]}%)` },
     { value: 4, label: `Level 4 (${levelRates[4]}%)` },
     { value: 5, label: `Level 5 (${levelRates[5]}%)` },
-    { value: 6, label: 'VIP Trading (80%)' },
+    { value: 6, label: 'VIP Trading (${levelRates[6]}%)` },
   ]
 
   return (
