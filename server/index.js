@@ -503,7 +503,8 @@ app.get('/api/user/profile', authMiddleware, async (req, res) => {
         level3_amount, level4_amount, level5_amount, role, chain, unlockedLevel,
         COALESCE(tradingIncome, 0) as tradingIncome,
         COALESCE(vipUnlocked, 0) as vipUnlocked,
-        COALESCE(vipProfitRate, 20) as vipProfitRate
+        COALESCE(vipProfitRate, 20) as vipProfitRate,
+        COALESCE(vip_amount, 0) as vip_amount
       FROM users WHERE id = ?
     `, [req.user.id]);
     connection.release();
@@ -1104,22 +1105,28 @@ app.post('/api/trading/execute', authMiddleware, async (req, res) => {
   try {
     const connection = await pool.getConnection();
     
-    // Check if user has VIP unlocked
-    const [userRows] = await connection.execute('SELECT vipUnlocked, chain FROM users WHERE id = ?', [userId]);
+    // Check if user has VIP unlocked and get their vip_amount
+    const [userRows] = await connection.execute('SELECT vipUnlocked, vip_amount, vipProfitRate, chain FROM users WHERE id = ?', [userId]);
     if (userRows.length === 0 || !userRows[0].vipUnlocked) {
       connection.release();
-      return res.status(403).json({ message: 'VIP Trading is locked for your account' });
+      return res.status(403).json({ message: 'VIP Trading is locked for your account. Please wait for admin approval.' });
     }
 
-    // Get profit rate from user record
-    const [userRecord] = await connection.execute('SELECT vipProfitRate FROM users WHERE id = ?', [userId]);
-    const profitRate = userRecord.length > 0 ? userRecord[0].vipProfitRate : 20;
+    const user = userRows[0];
+    const vipAmount = parseFloat(user.vip_amount || 0);
     
-    const profit = (amount * profitRate) / 100;
+    // Ensure the trade amount matches the approved VIP amount
+    if (Math.abs(parseFloat(amount) - vipAmount) > 0.01) {
+      connection.release();
+      return res.status(400).json({ message: 'Trade amount must match your approved VIP deposit amount.' });
+    }
+
+    const profitRate = user.vipProfitRate || 20;
+    const profit = (vipAmount * profitRate) / 100;
     
-    // Update user's trading income
+    // Update user's trading income and lock VIP status again
     await connection.execute(
-      'UPDATE users SET tradingIncome = tradingIncome + ? WHERE id = ?',
+      'UPDATE users SET tradingIncome = tradingIncome + ?, vipUnlocked = 0 WHERE id = ?',
       [profit, userId]
     );
     

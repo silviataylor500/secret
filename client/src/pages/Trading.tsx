@@ -38,7 +38,11 @@ export default function Trading() {
           return
         }
         
-        setUser(profileRes.data)
+        const userData = profileRes.data
+        setUser(userData)
+        if (userData.vip_amount) {
+          setAmount(userData.vip_amount.toString())
+        }
         
         // Fetch BTC price with fallback
         try {
@@ -120,7 +124,7 @@ export default function Trading() {
       if (isMounted.current) {
         setTradeResult({ profit: res.data.profit, rate: res.data.profitRate })
         setIsTrading(false)
-        setAmount('')
+        setAmount('0.00') // Reset to 0 after trade is locked
       }
     } catch (err: any) {
       if (isMounted.current) {
@@ -255,7 +259,7 @@ export default function Trading() {
                 <p className="text-4xl font-black text-[#0ecb81]">${tradeResult.profit.toFixed(2)}</p>
                 <p className="text-[10px] font-bold text-[#848e9c] mt-2">Rate: {tradeResult.rate}%</p>
               </div>
-              <button onClick={() => setTradeResult(null)} className="px-12 py-4 bg-orange-500 hover:bg-orange-400 text-white rounded-2xl font-black transition-all">NEW TRADE</button>
+              <button onClick={() => navigate('/dashboard')} className="px-12 py-4 bg-orange-500 hover:bg-orange-400 text-white rounded-2xl font-black transition-all">BACK TO DASHBOARD</button>
             </div>
           )}
         </div>
@@ -283,9 +287,9 @@ export default function Trading() {
                     type="number" 
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    disabled={isTrading}
-                    placeholder="100"
-                    className="w-full bg-[#0b0e11] border border-[#2b2f36] rounded-xl py-4 pl-10 pr-4 text-white font-bold focus:outline-none focus:border-orange-500 transition-all"
+                    disabled={true}
+                    placeholder="0.00"
+                    className="w-full bg-[#0b0e11] border border-[#2b2f36] rounded-xl py-4 pl-10 pr-4 text-white font-bold focus:outline-none opacity-70 cursor-not-allowed"
                   />
                 </div>
               </div>
