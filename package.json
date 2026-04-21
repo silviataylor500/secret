@@ -8,7 +8,6 @@
     "build": "vite build",
     "server": "node server/index.js",
     "start": "npm run server",
-    "deploy": "npm install && rm -rf dist client/dist && npm run build && npm run server",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -20,7 +19,8 @@
     "react-dom": "18.2.0",
     "react-router-dom": "6.11.0",
     "chart.js": "4.5.1",
-    "react-chartjs-2": "5.3.1"
+    "react-chartjs-2": "5.3.1",
+    "@kurkle/color": "0.3.4"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "4.0.0",
