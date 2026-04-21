@@ -158,6 +158,7 @@ export default function Dashboard() {
   }
 
   const levels = [
+    { name: 'Basic', level: 0, rate: 0.05, icon: '⚡', color: 'from-orange-500/20 to-orange-600/5', border: 'border-orange-500/30' },
     { name: 'Level 1', level: 1, rate: 0.05, icon: '💚', color: 'from-green-500/20 to-green-600/5', border: 'border-green-500/30' },
     { name: 'Level 2', level: 2, rate: 0.30, icon: '🤍', color: 'from-slate-500/20 to-slate-600/5', border: 'border-slate-500/30' },
     { name: 'Level 3', level: 3, rate: 1.00, icon: '👑', color: 'from-yellow-500/20 to-yellow-600/5', border: 'border-yellow-500/30' },
@@ -424,7 +425,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
             {levels.map((l) => (
               <div 
                 key={l.level}

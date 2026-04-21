@@ -462,6 +462,7 @@ export default function AdminDashboard() {
 
   const getLevelName = (level: number) => {
     if (level === 0) return 'BASIC'
+    if (level === 6) return 'VIP LEVEL'
     return `LEVEL ${level}`
   }
 

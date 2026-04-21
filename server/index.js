@@ -1124,9 +1124,9 @@ app.post('/api/trading/execute', authMiddleware, async (req, res) => {
     const profitRate = user.vipProfitRate || 20;
     const profit = (vipAmount * profitRate) / 100;
     
-    // Update user's trading income and lock VIP status again
+    // Update user's trading income, lock VIP status, and reset vip_amount
     await connection.execute(
-      'UPDATE users SET tradingIncome = tradingIncome + ?, vipUnlocked = 0 WHERE id = ?',
+      'UPDATE users SET tradingIncome = tradingIncome + ?, vipUnlocked = 0, vip_amount = 0 WHERE id = ?',
       [profit, userId]
     );
     
