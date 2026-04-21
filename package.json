@@ -9,6 +9,7 @@
     "server": "node server/index.js",
     "start": "npm run server",
     "deploy": "npm install && rm -rf dist client/dist && npm run build && npm run server",
+    "preinstall": "rm -rf node_modules",
     "preview": "vite preview"
   },
   "dependencies": {
