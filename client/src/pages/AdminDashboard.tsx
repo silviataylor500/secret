@@ -265,6 +265,17 @@ export default function AdminDashboard() {
     }
 
     initializeDashboard()
+
+    // Set up auto-refresh intervals
+    const depositInterval = setInterval(fetchDeposits, 5000) // Refresh every 5 seconds
+    const withdrawalInterval = setInterval(fetchWithdrawals, 5000) // Refresh every 5 seconds
+    const messageInterval = setInterval(fetchMessages, 3000) // Refresh every 3 seconds
+
+    return () => {
+      clearInterval(depositInterval)
+      clearInterval(withdrawalInterval)
+      clearInterval(messageInterval)
+    }
   }, [navigate])
 
   const handleUpdateUser = async (e: React.FormEvent) => {
@@ -861,12 +872,20 @@ export default function AdminDashboard() {
                         placeholder="Type your reply..."
                         className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-yellow-500 resize-none h-32"
                       />
-                      <button
-                        onClick={handleSendReply}
-                        className="w-full bg-yellow-500 hover:bg-yellow-600 text-slate-900 font-bold py-2 rounded-lg transition"
-                      >
-                        Send Reply
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleSendReply}
+                          className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-slate-900 font-bold py-2 rounded-lg transition"
+                        >
+                          Send Reply
+                        </button>
+                        <button
+                          onClick={() => setSelectedUserId(null)}
+                          className="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 rounded-lg transition"
+                        >
+                          Back to Chat
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <p className="text-slate-400 text-sm">Select a message to reply</p>

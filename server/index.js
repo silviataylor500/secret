@@ -940,11 +940,31 @@ app.get('/api/admin/withdrawals', authMiddleware, adminMiddleware, async (req, r
 app.post('/api/admin/withdrawals/:id/approve', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const connection = await pool.getConnection();
+    
+    // Get withdrawal details
+    const [withdrawals] = await connection.execute('SELECT * FROM withdrawals WHERE id = ?', [req.params.id]);
+    if (withdrawals.length === 0) {
+      connection.release();
+      return res.status(404).json({ message: 'Withdrawal not found' });
+    }
+    
+    const withdrawal = withdrawals[0];
+    const userId = withdrawal.userId;
+    const amount = withdrawal.amount;
+    
+    // Update withdrawal status to approved
     await connection.execute('UPDATE withdrawals SET status = ? WHERE id = ?', ['approved', req.params.id]);
+    
+    // Deduct the withdrawal amount from user's investment amount
+    await connection.execute(
+      'UPDATE users SET investmentAmount = investmentAmount - ? WHERE id = ?',
+      [amount, userId]
+    );
+    
     connection.release();
-    res.json({ message: 'Withdrawal approved successfully' });
+    res.json({ message: 'Withdrawal approved successfully and investment amount deducted' });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to approve withdrawal' });
+    res.status(500).json({ message: `Failed to approve withdrawal: ${error.message}` });
   }
 });
 
