@@ -131,18 +131,21 @@ export default function Chat() {
                   className={`flex ${msg.senderRole === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-xs px-4 py-2 rounded-lg ${
+                    className={`max-w-lg px-4 py-2 rounded-lg ${
                       msg.senderRole === 'user'
                         ? 'bg-yellow-500 text-slate-900'
                         : 'bg-slate-700 text-white'
                     }`}
                   >
-                    <p className="text-sm">{msg.message}</p>
+                    {msg.message && <p className="text-sm">{msg.message}</p>}
                     {msg.imagePath && (
                       <div className="mt-2">
-                        <img src={msg.imagePath} alt="attachment" className="max-w-full rounded border border-slate-600" />
+                        <a href={msg.imagePath} target="_blank" rel="noreferrer" className="inline-block">
+                          <img src={msg.imagePath} alt="attachment" className="max-w-sm max-h-64 rounded border border-slate-400 hover:border-yellow-300 transition" />
+                        </a>
                       </div>
                     )}
+                    {!msg.message && !msg.imagePath && <p className="text-xs italic opacity-70">No content</p>}
                     <p className="text-xs mt-1 opacity-70">
                       {new Date(msg.createdAt).toLocaleTimeString()}
                     </p>
@@ -182,6 +185,7 @@ export default function Chat() {
                   onChange={(e) => setNewImage(e.target.files?.[0] || null)}
                   className="text-xs text-slate-400"
                 />
+                {newImage && <span className="text-xs text-green-400">{newImage.name}</span>}
               </div>
             </form>
           </div>

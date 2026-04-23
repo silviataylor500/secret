@@ -893,12 +893,15 @@ export default function AdminDashboard() {
                           {msg.senderRole}
                         </span>
                       </div>
-                      <p className="text-slate-300 text-sm">{msg.message}</p>
+                      {msg.message && <p className="text-slate-300 text-sm">{msg.message}</p>}
                       {msg.imagePath && (
                         <div className="mt-2">
-                          <img src={msg.imagePath} alt="attachment" className="max-w-xs rounded border border-slate-600" />
+                          <a href={msg.imagePath} target="_blank" rel="noreferrer" className="inline-block">
+                            <img src={msg.imagePath} alt="attachment" className="max-w-xs max-h-64 rounded border border-slate-600 hover:border-yellow-500 transition" />
+                          </a>
                         </div>
                       )}
+                      {!msg.message && !msg.imagePath && <p className="text-slate-500 text-xs italic">No content</p>}
                       <p className="text-slate-500 text-xs mt-2">{new Date(msg.createdAt).toLocaleString()}</p>
                     </div>
                   ))}
