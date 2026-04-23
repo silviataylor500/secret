@@ -34,6 +34,7 @@ interface Deposit {
   email: string
   amount: number
   transactionId: string
+  imagePath?: string
   level: number
   status: 'pending' | 'approved' | 'rejected'
   createdAt: string
@@ -58,6 +59,7 @@ interface Message {
   name: string
   email: string
   message: string
+  imagePath?: string
   senderRole: 'user' | 'co-admin'
   createdAt: string
   chain?: number
@@ -94,6 +96,7 @@ export default function AdminDashboard() {
   const [adminRole, setAdminRole] = useState<string>('admin')
   const [adminChain, setAdminChain] = useState<number>(1)
   const [replyMessage, setReplyMessage] = useState<string>('')
+  const [replyImage, setReplyImage] = useState<File | null>(null)
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
   const [vipProfitRate, setVipProfitRate] = useState<number>(20)
   
@@ -444,20 +447,46 @@ export default function AdminDashboard() {
   }
 
   const handleSendReply = async () => {
-    if (!selectedUserId || !replyMessage) return
+    if (!selectedUserId || (!replyMessage.trim() && !replyImage)) return
 
     try {
       const token = localStorage.getItem('token')
-      await axios.post('/api/admin/chat/reply', {
-        userId: selectedUserId,
-        message: replyMessage
-      }, {
-        headers: { Authorization: `Bearer ${token}` },
+      const formData = new FormData()
+      formData.append('userId', selectedUserId)
+      formData.append('message', replyMessage)
+      if (replyImage) {
+        formData.append('image', replyImage)
+      }
+
+      await axios.post('/api/admin/chat/reply', formData, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        },
       })
       setReplyMessage('')
+      setReplyImage(null)
       fetchMessages()
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to send reply')
+    }
+  }
+
+  const handleEndChat = async () => {
+    if (!selectedUserId || !window.confirm('Are you sure you want to end this chat? All history and images will be deleted.')) return
+
+    try {
+      const token = localStorage.getItem('token')
+      await axios.post('/api/admin/chat/end', {
+        userId: selectedUserId
+      }, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      setSelectedUserId(null)
+      fetchMessages()
+      alert('Chat ended and history deleted.')
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to end chat')
     }
   }
 
@@ -685,6 +714,7 @@ export default function AdminDashboard() {
                     <th className="px-6 py-3 text-left text-sm font-semibold text-white">Amount</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold text-white">Level</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold text-white">Transaction ID</th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-white">Receipt</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold text-white">Status</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold text-white">Date</th>
                     <th className="px-6 py-3 text-left text-sm font-semibold text-white">Actions</th>
@@ -697,7 +727,16 @@ export default function AdminDashboard() {
                       <td className="px-6 py-4 text-yellow-500 font-bold">Chain {deposit.chain}</td>
                       <td className="px-6 py-4 text-green-400 font-semibold">${safeFormatUSD(deposit.amount)}</td>
                       <td className="px-6 py-4 text-yellow-400 font-semibold">{getLevelName(deposit.level)}</td>
-                      <td className="px-6 py-4 text-slate-300 font-mono text-sm">{deposit.transactionId}</td>
+                      <td className="px-6 py-4 text-slate-400 font-mono text-sm">{deposit.transactionId}</td>
+                      <td className="px-6 py-4">
+                        {deposit.imagePath ? (
+                          <a href={deposit.imagePath} target="_blank" rel="noreferrer" className="text-yellow-500 hover:underline text-xs">
+                            View Image
+                          </a>
+                        ) : (
+                          <span className="text-slate-600 text-xs">No Image</span>
+                        )}
+                      </td>
                       <td className="px-6 py-4">
                         <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
                           deposit.status === 'approved' ? 'bg-green-900/30 text-green-400' :
@@ -855,6 +894,11 @@ export default function AdminDashboard() {
                         </span>
                       </div>
                       <p className="text-slate-300 text-sm">{msg.message}</p>
+                      {msg.imagePath && (
+                        <div className="mt-2">
+                          <img src={msg.imagePath} alt="attachment" className="max-w-xs rounded border border-slate-600" />
+                        </div>
+                      )}
                       <p className="text-slate-500 text-xs mt-2">{new Date(msg.createdAt).toLocaleString()}</p>
                     </div>
                   ))}
@@ -872,18 +916,35 @@ export default function AdminDashboard() {
                         placeholder="Type your reply..."
                         className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-yellow-500 resize-none h-32"
                       />
-                      <div className="flex gap-2">
+                      <div>
+                        <label className="block text-slate-400 text-xs mb-1">Attach Image (JPEG):</label>
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/jpg"
+                          onChange={(e) => setReplyImage(e.target.files?.[0] || null)}
+                          className="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-white text-xs"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={handleSendReply}
+                            className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-slate-900 font-bold py-2 rounded-lg transition"
+                          >
+                            Send Reply
+                          </button>
+                          <button
+                            onClick={() => setSelectedUserId(null)}
+                            className="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 rounded-lg transition"
+                          >
+                            Back
+                          </button>
+                        </div>
                         <button
-                          onClick={handleSendReply}
-                          className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-slate-900 font-bold py-2 rounded-lg transition"
+                          onClick={handleEndChat}
+                          className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded-lg transition"
                         >
-                          Send Reply
-                        </button>
-                        <button
-                          onClick={() => setSelectedUserId(null)}
-                          className="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 rounded-lg transition"
-                        >
-                          Back to Chat
+                          End Chat & Delete History
                         </button>
                       </div>
                     </div>

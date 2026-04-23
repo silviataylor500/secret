@@ -7,6 +7,7 @@ interface Message {
   id: string
   userId: string
   message: string
+  imagePath?: string
   senderRole: 'user' | 'co-admin'
   createdAt: string
 }
@@ -15,6 +16,7 @@ export default function Chat() {
   const navigate = useNavigate()
   const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState<string>('')
+  const [newImage, setNewImage] = useState<File | null>(null)
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string>('')
@@ -49,8 +51,8 @@ export default function Chat() {
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!newMessage.trim()) {
-      setError('Message cannot be empty')
+    if (!newMessage.trim() && !newImage) {
+      setError('Message or image is required')
       return
     }
 
@@ -58,12 +60,20 @@ export default function Chat() {
     setError('')
     try {
       const token = localStorage.getItem('token')
-      await axios.post('/api/chat/send', {
-        message: newMessage,
-      }, {
-        headers: { Authorization: `Bearer ${token}` },
+      const formData = new FormData()
+      formData.append('message', newMessage)
+      if (newImage) {
+        formData.append('image', newImage)
+      }
+
+      await axios.post('/api/chat/send', formData, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        },
       })
       setNewMessage('')
+      setNewImage(null)
       fetchMessages()
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to send message')
@@ -128,6 +138,11 @@ export default function Chat() {
                     }`}
                   >
                     <p className="text-sm">{msg.message}</p>
+                    {msg.imagePath && (
+                      <div className="mt-2">
+                        <img src={msg.imagePath} alt="attachment" className="max-w-full rounded border border-slate-600" />
+                      </div>
+                    )}
                     <p className="text-xs mt-1 opacity-70">
                       {new Date(msg.createdAt).toLocaleTimeString()}
                     </p>
@@ -142,21 +157,32 @@ export default function Chat() {
             {error && (
               <p className="text-red-400 text-xs mb-2">{error}</p>
             )}
-            <form onSubmit={handleSendMessage} className="flex gap-2">
-              <input
-                type="text"
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                placeholder="Type your message..."
-                className="flex-1 bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-yellow-500"
-              />
-              <button
-                type="submit"
-                disabled={sending || !newMessage.trim()}
-                className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-700 text-slate-900 font-bold rounded-lg transition"
-              >
-                Send
-              </button>
+            <form onSubmit={handleSendMessage} className="space-y-2">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  placeholder="Type your message..."
+                  className="flex-1 bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-yellow-500"
+                />
+                <button
+                  type="submit"
+                  disabled={sending || (!newMessage.trim() && !newImage)}
+                  className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 disabled:bg-yellow-700 text-slate-900 font-bold rounded-lg transition"
+                >
+                  Send
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-slate-400 text-xs">Attach JPEG:</label>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/jpg"
+                  onChange={(e) => setNewImage(e.target.files?.[0] || null)}
+                  className="text-xs text-slate-400"
+                />
+              </div>
             </form>
           </div>
         </div>

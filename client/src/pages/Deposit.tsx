@@ -10,6 +10,7 @@ export default function Deposit() {
   const [transactionId, setTransactionId] = useState<string>('')
   const [amount, setAmount] = useState<string>('')
   const [selectedLevel, setSelectedLevel] = useState<number>(6)
+  const [image, setImage] = useState<File | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string>('')
   const [success, setSuccess] = useState<string>('')
@@ -82,18 +83,26 @@ export default function Deposit() {
     setSubmitting(true)
     try {
       const token = localStorage.getItem('token')
-      // Ensure we send exactly what the backend expects: amount, transactionId, level
-      await axios.post('/api/deposits/submit', {
-        amount: parseFloat(amount),
-        transactionId: transactionId,
-        level: selectedLevel,
-      }, {
-        headers: { Authorization: `Bearer ${token}` },
+      
+      const formData = new FormData()
+      formData.append('amount', amount)
+      formData.append('transactionId', transactionId)
+      formData.append('level', selectedLevel.toString())
+      if (image) {
+        formData.append('image', image)
+      }
+
+      await axios.post('/api/deposits/submit', formData, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        },
       })
       
       setSuccess('Deposit submitted successfully! Awaiting admin approval.')
       setTransactionId('')
       setAmount('')
+      setImage(null)
       
       setTimeout(() => {
         navigate('/dashboard')
@@ -225,6 +234,17 @@ export default function Deposit() {
                   </p>
                 )}
               </div>
+            </div>
+
+            <div>
+              <label className="block text-slate-300 text-sm font-medium mb-3">Upload Receipt (JPEG)</label>
+              <input
+                type="file"
+                accept="image/jpeg,image/jpg"
+                onChange={(e) => setImage(e.target.files?.[0] || null)}
+                className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-yellow-500"
+              />
+              <p className="text-slate-500 text-xs mt-2">Optional: Upload a screenshot of your transaction.</p>
             </div>
 
             <button

@@ -6,8 +6,57 @@ import { fileURLToPath } from 'url';
 import mysql from 'mysql2/promise';
 import crypto from 'crypto';
 import axios from 'axios';
+import multer from 'multer';
+import sharp from 'sharp';
+import { v4 as uuidv4 } from 'uuid';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Configure Multer for temporary storage
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      const uploadDir = path.join(__dirname, 'uploads');
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    }
+  }),
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only images are allowed'));
+    }
+  },
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
+  }
+});
+
+// Helper function to compress image
+async function compressImage(inputPath, outputPath) {
+  try {
+    await sharp(inputPath)
+      .resize(1200, 1200, { fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 70 })
+      .toFile(outputPath);
+    
+    // Delete original file if it's different from output
+    if (inputPath !== outputPath) {
+      fs.unlinkSync(inputPath);
+    }
+    return true;
+  } catch (error) {
+    console.error('Image compression error:', error);
+    return false;
+  }
+}
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -218,6 +267,7 @@ async function initDatabase() {
         chain INT DEFAULT 1,
         amount DECIMAL(10, 2) DEFAULT 0,
         transactionId VARCHAR(255) NOT NULL,
+        imagePath VARCHAR(255),
         level INT DEFAULT 0,
         status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -245,6 +295,11 @@ async function initDatabase() {
     try {
       await connection.execute(`ALTER TABLE deposits ADD COLUMN amount DECIMAL(10, 2) DEFAULT 0`);
       console.log('Amount column added to deposits table');
+    } catch (e) {}
+
+    try {
+      await connection.execute(`ALTER TABLE deposits ADD COLUMN imagePath VARCHAR(255)`);
+      console.log('imagePath column added to deposits table');
     } catch (e) {}
 
     // Create withdrawals table for tracking user withdrawals
@@ -277,7 +332,8 @@ async function initDatabase() {
         userId VARCHAR(36) NOT NULL,
         coAdminId VARCHAR(36),
         chain INT DEFAULT 1,
-        message TEXT NOT NULL,
+        message TEXT,
+        imagePath VARCHAR(255),
         senderRole ENUM('user', 'co-admin') NOT NULL,
         createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
@@ -320,6 +376,11 @@ async function initDatabase() {
     } catch (e) {
       console.log('Chain column already exists in messages table');
     }
+
+    try {
+      await connection.execute(`ALTER TABLE messages ADD COLUMN imagePath VARCHAR(255)`);
+      console.log('imagePath column added to messages table');
+    } catch (e) {}
 
     connection.release();
     console.log('Database tables initialized successfully');
@@ -739,34 +800,47 @@ app.post('/api/admin/settings/trc20', authMiddleware, adminMiddleware, async (re
   }
 });
 
-// User: Submit deposit with level
-app.post('/api/deposits/submit', authMiddleware, async (req, res) => {
+// User: Submit deposit with level and image
+app.post('/api/deposits/submit', authMiddleware, upload.single('image'), async (req, res) => {
   try {
     const { transactionId, level, amount } = req.body;
+    let imagePath = null;
 
     if (!transactionId || level === undefined || !amount) {
+      if (req.file) fs.unlinkSync(req.file.path);
       return res.status(400).json({ message: 'Amount, Transaction ID and level are required' });
     }
 
     if (transactionId.length < 5 || transactionId.length > 30 || !/^[a-zA-Z0-9]+$/.test(transactionId)) {
+      if (req.file) fs.unlinkSync(req.file.path);
       return res.status(400).json({ message: 'Transaction ID must be 5-30 alphanumeric characters' });
     }
 
     if (level < 0 || level > 6) {
+      if (req.file) fs.unlinkSync(req.file.path);
       return res.status(400).json({ message: 'Level must be between 0 (Basic) and 6 (VIP)' });
     }
 
-    const connection = await pool.getConnection();
+    if (req.file) {
+      const compressedFilename = `compressed-${req.file.filename.split('.')[0]}.jpg`;
+      const compressedPath = path.join(__dirname, 'uploads', compressedFilename);
+      const success = await compressImage(req.file.path, compressedPath);
+      if (success) {
+        imagePath = `/uploads/${compressedFilename}`;
+      }
+    }
 
+    const connection = await pool.getConnection();
     const depositId = crypto.randomUUID();
     await connection.execute(
-      'INSERT INTO deposits (id, userId, chain, amount, transactionId, level, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [depositId, req.user.id, req.user.chain, amount, transactionId, level, 'pending']
+      'INSERT INTO deposits (id, userId, chain, amount, transactionId, imagePath, level, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [depositId, req.user.id, req.user.chain, amount, transactionId, imagePath, level, 'pending']
     );
 
     connection.release();
     res.json({ message: 'Deposit submitted successfully' });
   } catch (error) {
+    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
     console.error('Deposit submission error:', error.message);
     res.status(500).json({ message: `Failed to submit deposit: ${error.message}` });
   }
@@ -792,6 +866,8 @@ app.get('/api/admin/deposits', authMiddleware, adminMiddleware, async (req, res)
 
     const [deposits] = await connection.execute(query, params);
     connection.release();
+    
+    // Map imagePath to full URL if needed or just return relative path
     res.json(deposits);
   } catch (error) {
     res.status(500).json({ message: 'Failed to fetch deposits' });
@@ -829,6 +905,16 @@ app.post('/api/admin/deposits/:id/approve', authMiddleware, adminMiddleware, asy
 
     // Update deposit status
     await connection.execute('UPDATE deposits SET status = ? WHERE id = ?', ['approved', req.params.id]);
+
+    // Delete image from server after approval
+    if (deposit.imagePath) {
+      const fullPath = path.join(__dirname, deposit.imagePath);
+      if (fs.existsSync(fullPath)) {
+        fs.unlinkSync(fullPath);
+        console.log(`Deleted deposit image: ${fullPath}`);
+      }
+      await connection.execute('UPDATE deposits SET imagePath = NULL WHERE id = ?', [req.params.id]);
+    }
 
     // Get the rate for this level from settings
     const [settings] = await connection.execute('SELECT * FROM settings WHERE chain = ?', [deposit.chain]);
@@ -980,30 +1066,40 @@ app.post('/api/admin/withdrawals/:id/reject', authMiddleware, adminMiddleware, a
   }
 });
 
-// User: Submit chat message
-app.post('/api/chat/send', authMiddleware, async (req, res) => {
+// User: Send chat message with optional image
+app.post('/api/chat/send', authMiddleware, upload.single('image'), async (req, res) => {
   try {
     const { message } = req.body;
+    let imagePath = null;
 
-    if (!message) {
-      return res.status(400).json({ message: 'Message is required' });
+    if (!message && !req.file) {
+      return res.status(400).json({ message: 'Message or image is required' });
+    }
+
+    if (req.file) {
+      const compressedFilename = `chat-${req.file.filename.split('.')[0]}.jpg`;
+      const compressedPath = path.join(__dirname, 'uploads', compressedFilename);
+      const success = await compressImage(req.file.path, compressedPath);
+      if (success) {
+        imagePath = `/uploads/${compressedFilename}`;
+      }
     }
 
     const connection = await pool.getConnection();
-
     const messageId = crypto.randomUUID();
     await connection.execute(
-      'INSERT INTO messages (id, userId, chain, message, senderRole) VALUES (?, ?, ?, ?, ?)',
-      [messageId, req.user.id, req.user.chain, message, 'user']
+      'INSERT INTO messages (id, userId, chain, message, imagePath, senderRole) VALUES (?, ?, ?, ?, ?, ?)',
+      [messageId, req.user.id, req.user.chain, message || '', imagePath, 'user']
     );
 
     connection.release();
     res.json({ message: 'Message sent successfully' });
   } catch (error) {
+    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
     console.error('Chat message error:', error.message);
     res.status(500).json({ message: `Failed to send message: ${error.message}` });
   }
-});
+}););
 
 // Co-Admin: Get chat messages for their chain
 app.get('/api/admin/chat', authMiddleware, coAdminMiddleware, async (req, res) => {
@@ -1046,13 +1142,24 @@ app.get('/api/chat/messages', authMiddleware, async (req, res) => {
   }
 });
 
-// Co-Admin: Send chat reply
-app.post('/api/admin/chat/reply', authMiddleware, coAdminMiddleware, async (req, res) => {
+// Co-Admin: Send chat reply with optional image
+app.post('/api/admin/chat/reply', authMiddleware, coAdminMiddleware, upload.single('image'), async (req, res) => {
   try {
     const { userId, message } = req.body;
+    let imagePath = null;
 
-    if (!userId || !message) {
-      return res.status(400).json({ message: 'User ID and message are required' });
+    if (!userId || (!message && !req.file)) {
+      if (req.file) fs.unlinkSync(req.file.path);
+      return res.status(400).json({ message: 'User ID and (message or image) are required' });
+    }
+
+    if (req.file) {
+      const compressedFilename = `chat-reply-${req.file.filename.split('.')[0]}.jpg`;
+      const compressedPath = path.join(__dirname, 'uploads', compressedFilename);
+      const success = await compressImage(req.file.path, compressedPath);
+      if (success) {
+        imagePath = `/uploads/${compressedFilename}`;
+      }
     }
 
     const connection = await pool.getConnection();
@@ -1061,21 +1168,60 @@ app.post('/api/admin/chat/reply', authMiddleware, coAdminMiddleware, async (req,
     const [users] = await connection.execute('SELECT chain FROM users WHERE id = ?', [userId]);
     if (users.length === 0) {
       connection.release();
+      if (req.file && imagePath) fs.unlinkSync(path.join(__dirname, imagePath));
       return res.status(404).json({ message: 'User not found' });
     }
     const userChain = users[0].chain;
 
     const messageId = crypto.randomUUID();
     await connection.execute(
-      'INSERT INTO messages (id, userId, coAdminId, chain, message, senderRole) VALUES (?, ?, ?, ?, ?, ?)',
-      [messageId, userId, req.user.id, userChain, message, 'co-admin']
+      'INSERT INTO messages (id, userId, coAdminId, chain, message, imagePath, senderRole) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [messageId, userId, req.user.id, userChain, message || '', imagePath, 'co-admin']
     );
 
     connection.release();
     res.json({ message: 'Reply sent successfully' });
   } catch (error) {
+    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
     console.error('Chat reply error:', error.message);
     res.status(500).json({ message: `Failed to send reply: ${error.message}` });
+  }
+});
+
+// Admin: End chat and delete history
+app.post('/api/admin/chat/end', authMiddleware, coAdminMiddleware, async (req, res) => {
+  try {
+    const { userId } = req.body;
+    if (!userId) {
+      return res.status(400).json({ message: 'User ID is required' });
+    }
+
+    const connection = await pool.getConnection();
+
+    // Get all messages with images for this user
+    const [messages] = await connection.execute(
+      'SELECT imagePath FROM messages WHERE userId = ?',
+      [userId]
+    );
+
+    // Delete all images from server
+    messages.forEach(msg => {
+      if (msg.imagePath) {
+        const fullPath = path.join(__dirname, msg.imagePath);
+        if (fs.existsSync(fullPath)) {
+          fs.unlinkSync(fullPath);
+        }
+      }
+    });
+
+    // Delete all messages from database
+    await connection.execute('DELETE FROM messages WHERE userId = ?', [userId]);
+
+    connection.release();
+    res.json({ message: 'Chat ended and history deleted successfully' });
+  } catch (error) {
+    console.error('End chat error:', error.message);
+    res.status(500).json({ message: `Failed to end chat: ${error.message}` });
   }
 });
 
@@ -1203,6 +1349,9 @@ app.post('/api/admin/settings/vip-rate', authMiddleware, adminMiddleware, async 
     res.status(500).json({ message: 'Failed to update VIP profit rate' });
   }
 });
+
+// Serve uploaded files
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Static files configuration
 const rootDistPath = path.resolve(process.cwd(), 'dist/public');
